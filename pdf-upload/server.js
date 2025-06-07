@@ -292,7 +292,7 @@ async function saveUploadRecord(file, extractedText, parsedData) {
 
 async function sendToN8N(file, extractedText, parsedData) {
   try {
-    const n8nWebhookUrl = 'http://localhost:5678/webhook/pdf-process';
+    const n8nWebhookUrl = 'https://n8npkapp.pktechnic.com/webhook-test/pdfupload';
     
     const payload = {
       fileName: file.filename,
