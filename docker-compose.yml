@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  pkcrm-web:
+    build: .
+    container_name: pkcrm-web
+    ports:
+      - "3002:3002"
+    volumes:
+      - .:/app                    # 🔥 Mount source code
+      - /app/node_modules          # Exclude node_modules
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=localhost
+      - DB_PORT=5433
+      - DB_NAME=pk_crm_db
+      - DB_USER=pkt_user
+      - DB_PASSWORD=pkt_password_123
+      - SESSION_SECRET=pk-crm-secret-2025
+      - CORS_ORIGIN=https://pkcrm.pktechnic.com
+    command: npm run dev           # 🔥 Use nodemon
+    restart: unless-stopped
+    networks:
+      - pkcrm-network
+
+networks:
+  pkcrm-network:
+    driver: bridge

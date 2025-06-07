@@ -1,0 +1,33 @@
+services:
+  pkcrm-app:
+    build: .
+    container_name: pkcrm-web
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DB_HOST: localhost
+      DB_PORT: 5433
+      DB_NAME: pk_crm_db
+      DB_USER: pkt_user
+      DB_PASSWORD: pkt_password_123
+      SESSION_SECRET: ${SESSION_SECRET}
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./public/reports:/app/public/reports
+      - ./logs:/app/logs
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    network_mode: host
+
+  redis:
+    image: redis:7-alpine
+    container_name: pkcrm-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
