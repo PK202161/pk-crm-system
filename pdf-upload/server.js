@@ -55,11 +55,11 @@ const upload = multer({
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
-    message: 'PK CRM Super Enhanced PDF Upload Server',
+    message: 'PK CRM ULTIMATE DEBUG PDF Upload Server',
     timestamp: new Date().toISOString(),
     port: PORT,
-    features: ['PDF Upload', 'Super Text Cleaning', 'Robust Extraction', 'Enhanced PDF Parser', 'Remarks Support', 'File Management', 'N8N Integration', 'Database Storage'],
-    version: 'super_enhanced_v4'
+    features: ['PDF Upload', 'ULTIMATE DEBUG', 'Specific Pattern Matching', 'Enhanced PDF Parser', 'File Management', 'N8N Integration', 'Database Storage'],
+    version: 'ultimate_debug_v5'
   });
 });
 
@@ -94,12 +94,12 @@ app.get('/', async (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PK CRM - Super Enhanced PDF Upload System</title>
+    <title>PK CRM - ULTIMATE DEBUG PDF Upload System</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -112,7 +112,7 @@ app.get('/', async (req, res) => {
             overflow: hidden;
         }
         .header { 
-            background: linear-gradient(45deg, #007bff, #0056b3);
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
             color: white;
             padding: 30px;
             text-align: center;
@@ -131,7 +131,7 @@ app.get('/', async (req, res) => {
             padding: 25px;
             border-radius: 10px;
             margin-bottom: 30px;
-            border: 2px dashed #007bff;
+            border: 2px dashed #ff6b6b;
         }
         .upload-form { 
             display: flex; 
@@ -148,7 +148,7 @@ app.get('/', async (req, res) => {
             font-size: 16px;
         }
         .btn { 
-            background: #007bff; 
+            background: #ff6b6b; 
             color: white; 
             padding: 12px 25px; 
             border: none; 
@@ -158,7 +158,7 @@ app.get('/', async (req, res) => {
             font-weight: bold;
             transition: all 0.3s;
         }
-        .btn:hover { background: #0056b3; transform: translateY(-2px); }
+        .btn:hover { background: #ee5a24; transform: translateY(-2px); }
         .btn-danger { background: #dc3545; }
         .btn-danger:hover { background: #c82333; }
         .btn-success { background: #28a745; }
@@ -219,7 +219,7 @@ app.get('/', async (req, res) => {
             margin-bottom: 20px;
         }
         .stat-card { 
-            background: #007bff;
+            background: #ff6b6b;
             color: white;
             padding: 15px 20px;
             border-radius: 8px;
@@ -237,7 +237,7 @@ app.get('/', async (req, res) => {
         }
         .progress-bar { 
             height: 6px; 
-            background: #007bff; 
+            background: #ff6b6b; 
             width: 0%; 
             transition: width 0.3s;
         }
@@ -262,8 +262,8 @@ app.get('/', async (req, res) => {
     <div class="container">
         <div class="header">
             <h1>🏢 PK CRM</h1>
-            <h2>Super Enhanced PDF Upload System</h2>
-            <div class="status">✅ ระบบออนไลน์ | Super Text Cleaning | Robust Extraction | V4 | Database เชื่อมต่อ | N8N พร้อม</div>
+            <h2>ULTIMATE DEBUG PDF Upload System</h2>
+            <div class="status">✅ ระบบออนไลน์ | ULTIMATE DEBUG v5 | Full Logging | Database เชื่อมต่อ | N8N พร้อม</div>
         </div>
         
         <div class="content">
@@ -283,7 +283,7 @@ app.get('/', async (req, res) => {
             </div>
             
             <div class="upload-section">
-                <h3>📄 อัพโหลด PDF ใหม่ (Super Text Cleaning + Robust Extraction)</h3>
+                <h3>📄 อัพโหลด PDF ใหม่ (ULTIMATE DEBUG - Full Console Logging)</h3>
                 <form class="upload-form" id="uploadForm" enctype="multipart/form-data">
                     <input type="file" name="pdf" accept=".pdf" required id="fileInput">
                     <button type="submit" class="btn" id="uploadBtn">🚀 อัพโหลด</button>
@@ -364,7 +364,7 @@ app.get('/', async (req, res) => {
                 const result = await response.json();
                 
                 if (result.success) {
-                    showAlert('อัพโหลดสำเร็จ! 🎉 Super Enhanced Parser v4 ประมวลผลแล้ว...', 'success');
+                    showAlert('อัพโหลดสำเร็จ! 🎉 ULTIMATE DEBUG v5 ประมวลผลแล้ว (ดู Console Log)...', 'success');
                     fileInput.value = '';
                     setTimeout(() => location.reload(), 2000);
                 } else {
@@ -465,8 +465,8 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
 
     console.log('📝 Extracted text length:', extractedText.length);
 
-    // Super Enhanced PDF parsing with robust text cleaning
-    const parsedData = await superEnhancedParsePDFContent(extractedText);
+    // ULTIMATE DEBUG PDF parsing
+    const parsedData = await ultimateDebugParsePDFContent(extractedText);
 
     // Save upload record to database
     const uploadRecord = await saveUploadRecord(req.file, extractedText, parsedData);
@@ -482,7 +482,7 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
 
     res.json({
       success: true,
-      message: 'PDF uploaded and processed successfully with Super Enhanced Parser v4',
+      message: 'PDF uploaded and processed successfully with ULTIMATE DEBUG v5',
       data: {
         fileId: uploadRecord.attachment_id,
         filename: req.file.filename,
@@ -727,45 +727,64 @@ app.get('/api/files', async (req, res) => {
   }
 });
 
-// SUPER TEXT CLEANING FUNCTION
-function superCleanText(text) {
-  console.log('🧽 Starting super text cleaning...');
+// ULTIMATE DEBUG TEXT CLEANING FUNCTION
+function ultimateCleanText(text) {
+  console.log('🧹🧹🧹 ULTIMATE TEXT CLEANING START 🧹🧹🧹');
+  console.log('📏 Original text length:', text.length);
+  console.log('🔍 Original text sample (chars 1000-1500):');
+  console.log(text.substring(1000, 1500));
   
   let cleaned = text;
   
-  // Step 1: Remove all control characters
+  // Step 1: Show control characters before removal
+  const controlChars = text.match(/[\u0000-\u001F\u007F-\u009F]/g);
+  if (controlChars) {
+    console.log('🚫 Found control characters:', controlChars.map(c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')));
+  }
+  
+  // Step 2: Remove all control characters
   cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ');
+  console.log('✅ Step 1: Removed control characters, length:', cleaned.length);
   
-  // Step 2: Fix broken Thai words - รวมพยัญชนะไทยที่โดนตัดด้วยช่องว่าง/newline/ตัวอักษรแปลก
-  cleaned = cleaned.replace(/([ก-ฮ])[\s\n\r\t]*T[\s\n\r\t]*([ก-ฮ])/g, '$1$2');
-  cleaned = cleaned.replace(/([ก-ฮ])[\s\n\r\t]+([ก-ฮ])/g, '$1$2');
+  // Step 3: Fix specific broken patterns we know exist
+  const brokenPatterns = [
+    { pattern: /เลขที[^Q]*QT(\d{7})/gi, replacement: 'เลขที่ใบเสนอราคา QT$1', name: 'quotation number' },
+    { pattern: /จํานวนเงินรวมทั[^0-9]+(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/gi, replacement: 'จํานวนเงินรวมทั้งสิ้น $1', name: 'total amount' },
+    { pattern: /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)[^ร]*รวมเป็นเงิน/gi, replacement: '$1 รวมเป็นเงิน', name: 'subtotal' },
+    { pattern: /(\d+\.?\d*)\s*%[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)[^จ]*จํานวนภาษี/gi, replacement: '$1% $2 จํานวนภาษีมูลค่าเพิ่ม', name: 'VAT' },
+    { pattern: /เคเบิ[^ล]*ล/gi, replacement: 'เคเบิล', name: 'cable word' },
+    { pattern: /([ก-ฮ])[^ก-ฮA-Za-z0-9]*([ก-ฮ])/g, replacement: '$1$2', name: 'broken Thai words' },
+    { pattern: /([A-Za-z0-9])[^ก-ฮA-Za-z0-9]*([A-Za-z0-9])/g, replacement: '$1$2', name: 'broken English/numbers' }
+  ];
   
-  // Step 3: Fix broken English words and numbers
-  cleaned = cleaned.replace(/([A-Za-z0-9])[\s\n\r\t]*T[\s\n\r\t]*([A-Za-z0-9])/g, '$1$2');
-  cleaned = cleaned.replace(/([A-Za-z0-9])[\s\n\r\t]+([A-Za-z0-9])/g, '$1$2');
+  brokenPatterns.forEach((bp, index) => {
+    const beforeLength = cleaned.length;
+    const matches = cleaned.match(bp.pattern);
+    if (matches) {
+      console.log(`🔧 Step ${index + 3}: Found ${bp.name}:`, matches.slice(0, 3));
+    }
+    cleaned = cleaned.replace(bp.pattern, bp.replacement);
+    if (cleaned.length !== beforeLength) {
+      console.log(`✅ Step ${index + 3}: Fixed ${bp.name}, length change:`, beforeLength, '->', cleaned.length);
+    }
+  });
   
-  // Step 4: Fix specific broken words that we know from the sample
-  cleaned = cleaned.replace(/เคเบิ[\s\n\r\t]*T[\s\n\r\t]*ล/g, 'เคเบิล');
-  cleaned = cleaned.replace(/ทั[\s\n\r\t]*T[\s\n\r\t]*งสิ[\s\n\r\t]*T[\s\n\r\t]*น/g, 'ทั้งสิ้น');
-  cleaned = cleaned.replace(/สั[\s\n\r\t]*T[\s\n\r\t]*งซื[\s\n\r\t]*T[\s\n\r\t]*อ/g, 'สั่งซื้อ');
-  cleaned = cleaned.replace(/จํานวนเงินรวมทั[\s\n\r\t]*T[\s\n\r\t]*งสิ[\s\n\r\t]*T[\s\n\r\t]*น/g, 'จํานวนเงินรวมทั้งสิ้น');
+  // Final cleanup
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
   
-  // Step 5: Remove extra whitespace
-  cleaned = cleaned.replace(/[\n\r]+/g, ' ');
-  cleaned = cleaned.replace(/\s+/g, ' ');
-  cleaned = cleaned.trim();
-  
-  console.log('🧽 Super text cleaning complete');
-  console.log('📏 Original length:', text.length, 'Cleaned length:', cleaned.length);
-  console.log('🔍 Cleaned preview (first 500 chars):');
-  console.log(cleaned.substring(0, 500));
+  console.log('📏 Final cleaned length:', cleaned.length);
+  console.log('🔍 Cleaned text sample (chars 1000-1500):');
+  console.log(cleaned.substring(1000, 1500));
+  console.log('🧹🧹🧹 ULTIMATE TEXT CLEANING END 🧹🧹🧹');
   
   return cleaned;
 }
 
 // Helper Functions
 
-async function superEnhancedParsePDFContent(text) {
+async function ultimateDebugParsePDFContent(text) {
+  console.log('🚀🚀🚀 ULTIMATE DEBUG PARSING START 🚀🚀🚀');
+  
   const data = {
     type: 'unknown',
     quotationNumber: null,
@@ -781,215 +800,165 @@ async function superEnhancedParsePDFContent(text) {
     summary: {},
     rawText: text,
     parsingEnhancements: {
-      superTextCleaning: true,
-      robustExtraction: true,
-      remarksSupport: true,
-      multiLineDescriptions: true,
-      version: 'super_enhanced_v4'
+      ultimateDebug: true,
+      specificPatternMatching: true,
+      fullLogging: true,
+      version: 'ultimate_debug_v5'
     }
   };
 
   try {
-    // SUPER CLEAN TEXT - ขั้นตอนสำคัญที่สุด
-    const cleanText = superCleanText(text);
+    // ULTIMATE CLEAN TEXT
+    const cleanText = ultimateCleanText(text);
 
-    console.log('🔍 Starting super enhanced PDF parsing...');
-
-    // Enhanced document type detection
-    if (cleanText.includes('ใบเสนอราคา') || cleanText.includes('QUOTATION') || /QT\d{7}/.test(cleanText)) {
-      data.type = 'quotation';
-      
-      // Extract quotation number - avoid duplicate QT
-      const quotePatterns = [
-        /(QT\d{7})/g  // Simple pattern to get exact QT number
-      ];
-      
-      for (const pattern of quotePatterns) {
-        const matches = [...cleanText.matchAll(pattern)];
-        if (matches.length > 0) {
-          // Get the first occurrence
-          data.quotationNumber = matches[0][1];
-          break;
-        }
-      }
-    }
+    // EXTRACT QUOTATION NUMBER - ULTIMATE DEBUG
+    console.log('🔍 EXTRACTING QUOTATION NUMBER...');
+    const quotationPatterns = [
+      /QT(\d{7})/gi,
+      /เลขที่[^Q]*QT(\d{7})/gi,
+      /Quotation[^Q]*QT(\d{7})/gi
+    ];
     
-    else if (cleanText.includes('ใบสั่งขาย') || cleanText.includes('SALES ORDER') || /SO\d{7}/.test(cleanText)) {
-      data.type = 'sales_order';
-      
-      // Extract SO number
-      const soPatterns = [
-        /(SO\d{7})/g
-      ];
-      
-      for (const pattern of soPatterns) {
-        const matches = [...cleanText.matchAll(pattern)];
-        if (matches.length > 0) {
-          data.quotationNumber = matches[0][1];
-          break;
-        }
+    for (let i = 0; i < quotationPatterns.length; i++) {
+      const pattern = quotationPatterns[i];
+      const matches = [...cleanText.matchAll(pattern)];
+      console.log(`📋 Quotation pattern ${i + 1}:`, pattern, 'found:', matches.length);
+      if (matches.length > 0) {
+        data.quotationNumber = 'QT' + matches[0][1];
+        console.log(`✅ FOUND QUOTATION NUMBER: ${data.quotationNumber}`);
+        break;
       }
     }
 
-    // Extract customer code - this works well
-    const customerCodeMatch = cleanText.match(/(CU\d+)/);
+    // EXTRACT DOCUMENT TYPE
+    if (cleanText.includes('ใบเสนอราคา') || cleanText.includes('QUOTATION') || data.quotationNumber) {
+      data.type = 'quotation';
+      console.log('✅ DOCUMENT TYPE: quotation');
+    }
+
+    // EXTRACT CUSTOMER CODE
+    console.log('🔍 EXTRACTING CUSTOMER CODE...');
+    const customerCodeMatch = cleanText.match(/(CU\d+)/i);
     if (customerCodeMatch) {
       data.customerCode = customerCodeMatch[1];
+      console.log(`✅ FOUND CUSTOMER CODE: ${data.customerCode}`);
     }
 
-    // Enhanced customer name extraction
+    // EXTRACT CUSTOMER NAME - ULTIMATE DEBUG
+    console.log('🔍 EXTRACTING CUSTOMER NAME...');
     const customerPatterns = [
-      // Pattern 1: หาชื่อบริษัทที่ไม่ใช่ "พี.เค.เทคนิค" จาก CU context
-      /CU\d+\s+บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จำกัด/i,
-      /CU\d+\s+บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จํากัด/i,
-      
-      // Pattern 2: หาจากบริบท "To" หรือ "ถึง"
-      /(?:To|ถึง)[:\s]+.*?บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จำกัด/i,
-      /(?:To|ถึง)[:\s]+.*?บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จํากัด/i,
-      
-      // Pattern 3: หาจากตำแหน่งของ CU code - improved
-      /CU\d+[:\s]+บริษัท\s+([^พ][^\n\r]+?)\s+(?:จำกัด|จํากัด)/i,
-      
-      // Pattern 4: รูปแบบทั่วไป แต่กรองชื่อบริษัทเรา
-      /บริษัท\s+([^พ\s][^\n\r]+?)\s+(?:จำกัด|จํากัด)/i
+      /CU\d+\s+บริษัท\s+([^บ]+?)\s+จำกัด/gi,
+      /CU\d+\s+บริษัท\s+([^บ]+?)\s+จํากัด/gi,
+      /To\s+CU\d+\s+บริษัท\s+([^บ]+?)\s+จำกัด/gi,
+      /บริษัท\s+([กขคงจชซฎดตถทธนบปพฟภมยรลวศษสหลอฮ][^บ]+?)\s+จำกัด/gi
     ];
     
-    for (const pattern of customerPatterns) {
-      const match = cleanText.match(pattern);
-      if (match && match[1]) {
-        let customerName = match[1].trim();
-        
-        // กรองไม่ให้เอาชื่อบริษัทเรา
-        if (!customerName.includes('พี.เค.เทคนิค') && 
-            !customerName.includes('pktechnic') &&
-            customerName.length > 3) {
-          // ทำความสะอาดชื่อลูกค้า
-          customerName = customerName
-            .replace(/\s+/g, ' ')
-            .replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s\(\)]/g, '')
-            .trim();
-            
-          if (!customerName.includes('จำกัด') && !customerName.includes('จํากัด')) {
-            customerName += ' จำกัด';
-          }
-          
-          data.customerName = `บริษัท ${customerName}`;
+    for (let i = 0; i < customerPatterns.length; i++) {
+      const pattern = customerPatterns[i];
+      const matches = [...cleanText.matchAll(pattern)];
+      console.log(`👤 Customer pattern ${i + 1}:`, pattern, 'found:', matches.length);
+      if (matches.length > 0) {
+        let customerName = matches[0][1].trim();
+        if (!customerName.includes('พี.เค.เทคนิค') && customerName.length > 3) {
+          data.customerName = `บริษัท ${customerName} จำกัด`;
+          console.log(`✅ FOUND CUSTOMER NAME: ${data.customerName}`);
           break;
         }
       }
     }
 
-    // Enhanced date extraction - handle special characters in วันที่
+    // EXTRACT DATE
+    console.log('🔍 EXTRACTING DATE...');
     const datePatterns = [
-      /วันที[^0-9]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,  // More flexible pattern
-      /Date[:\s]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-      // Look specifically for the pattern we see: "05/06/68"
-      /(\d{2}\/\d{2}\/\d{2})/g  // Two-digit format
+      /วันที่\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/gi,
+      /Date\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/gi,
+      /(\d{2}\/\d{2}\/\d{2})/g
     ];
     
-    for (const pattern of datePatterns) {
-      const matches = cleanText.match(pattern);
-      if (matches) {
-        const dateStr = matches[1] || matches[0];
-        if (dateStr && dateStr.includes('/') && dateStr.length >= 6) {
-          data.date = dateStr;
-          break;
-        }
+    for (let i = 0; i < datePatterns.length; i++) {
+      const pattern = datePatterns[i];
+      const matches = [...cleanText.matchAll(pattern)];
+      console.log(`📅 Date pattern ${i + 1}:`, pattern, 'found:', matches.length);
+      if (matches.length > 0) {
+        data.date = matches[0][1] || matches[0][0];
+        console.log(`✅ FOUND DATE: ${data.date}`);
+        break;
       }
     }
 
-    // SUPER ENHANCED TOTAL AMOUNT EXTRACTION - รุ่นปรับปรุงใหม่
+    // EXTRACT TOTAL AMOUNT - ULTIMATE DEBUG
+    console.log('🔍 EXTRACTING TOTAL AMOUNT...');
     const totalPatterns = [
-      // Priority 1: Pattern เฉพาะจากเอกสารจริง - หลังจาก super clean แล้ว
-      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*จํานวนเงินรวมทั้งสิ้น/i,
-      
-      // Priority 2: Pattern สำหรับ Net Amount 
-      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*Net\s+Amount/i,
-      
-      // Priority 3: หาจากบริบทของตัวเลขในวงเล็บไทย
-      /\(ห้าพัน[^)]+\)\.\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
-      
-      // Priority 4: รูปแบบทั่วไป - ปรับให้ยืดหยุ่นมากขึ้น
-      /รวมทั้งสิ้น[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
-      /จํานวนเงินรวมทั้งสิ้น[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
-      
-      // Priority 5: ค้นหาจากตัวเลขที่ใหญ่ที่สุด (สำหรับ fallback)
+      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*จํานวนเงินรวมทั้งสิ้น/gi,
+      /จํานวนเงินรวมทั้งสิ้น\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/gi,
+      /\(ห้าพัน[^)]+\)[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/gi,
+      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*Net\s+Amount/gi,
       /(\d{1,3}(?:,\d{3})*\.\d{2})/g
     ];
-
+    
     let foundAmounts = [];
-    let debugInfo = [];
-
     for (let i = 0; i < totalPatterns.length; i++) {
       const pattern = totalPatterns[i];
-      const matches = [...cleanText.matchAll(new RegExp(pattern.source, pattern.flags))];
-      
+      const matches = [...cleanText.matchAll(pattern)];
+      console.log(`💰 Total pattern ${i + 1}:`, pattern, 'found:', matches.length);
       for (const match of matches) {
         const amountStr = match[1];
         const amount = parseFloat(amountStr.replace(/,/g, ''));
-        
         if (amount > 100) {
-          const context = cleanText.substr(Math.max(0, match.index - 50), 150);
+          const context = cleanText.substr(Math.max(0, match.index - 100), 200);
           foundAmounts.push({
-            amount: amount,
+            amount,
             original: amountStr,
             priority: i,
-            context: context.trim(),
-            pattern: pattern.source
+            context: context.trim()
           });
-          
-          debugInfo.push(`Pattern ${i}: Found ${amountStr} (${amount}) in context: "${context.trim()}"`);
+          console.log(`💰 Found amount: ${amountStr} (${amount}) in context: "${context.trim().substring(0, 50)}..."`);
         }
       }
     }
-
-    // Sort by priority และ amount
+    
     foundAmounts.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return b.amount - a.amount;
     });
-
-    // Debug logging
-    console.log('💰 Super Enhanced Amount detection debug:');
-    debugInfo.forEach(info => console.log('  ', info));
-    console.log('📊 Found amounts (sorted):', foundAmounts.slice(0, 5));
-
+    
     if (foundAmounts.length > 0) {
       data.total = foundAmounts[0].amount;
-      console.log(`✅ Selected total: ${foundAmounts[0].original} (${foundAmounts[0].amount})`);
+      console.log(`✅ SELECTED TOTAL: ${foundAmounts[0].original} (${foundAmounts[0].amount})`);
     } else {
-      console.log('❌ No valid amounts found');
+      console.log('❌ NO TOTAL AMOUNT FOUND');
     }
 
-    // SUPER ENHANCED SUBTOTAL, VAT, DISCOUNT EXTRACTION
-    // Extract subtotal - ปรับ pattern หลังจาก super clean
-    const subtotalMatch = cleanText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*รวมเป็นเงิน\s*Subtotal/i);
+    // EXTRACT SUBTOTAL
+    console.log('🔍 EXTRACTING SUBTOTAL...');
+    const subtotalMatch = cleanText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*รวมเป็นเงิน/gi);
     if (subtotalMatch) {
       data.subtotal = parseFloat(subtotalMatch[1].replace(/,/g, ''));
-      console.log(`✅ Found subtotal: ${data.subtotal}`);
+      console.log(`✅ FOUND SUBTOTAL: ${data.subtotal}`);
+    } else {
+      console.log('❌ NO SUBTOTAL FOUND');
     }
 
-    // Extract VAT - ปรับ pattern หลังจาก super clean
-    const vatMatch = cleanText.match(/(\d+\.?\d*)\s*%\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*จํานวนภาษี/i);
+    // EXTRACT VAT
+    console.log('🔍 EXTRACTING VAT...');
+    const vatMatch = cleanText.match(/(\d+\.?\d*)\s*%\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*จํานวนภาษี/gi);
     if (vatMatch) {
       data.vatPercent = parseFloat(vatMatch[1]);
       data.vatAmount = parseFloat(vatMatch[2].replace(/,/g, ''));
-      console.log(`✅ Found VAT: ${data.vatPercent}% = ${data.vatAmount}`);
-    }
-
-    // Extract discount
-    const discountMatch = cleanText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*หักส่วนลด/i);
-    if (discountMatch) {
-      data.discount = parseFloat(discountMatch[1].replace(/,/g, ''));
+      console.log(`✅ FOUND VAT: ${data.vatPercent}% = ${data.vatAmount}`);
     } else {
-      data.discount = 0; // Default
+      console.log('❌ NO VAT FOUND');
     }
-    console.log(`✅ Found discount: ${data.discount}`);
 
-    // SUPER ENHANCED LINE ITEMS EXTRACTION WITH REMARKS SUPPORT
-    data.items = superEnhancedExtractLineItems(cleanText);
+    // EXTRACT DISCOUNT
+    data.discount = 0; // Default
+    console.log(`✅ DISCOUNT: ${data.discount} (default)`);
 
-    // Create comprehensive summary
+    // EXTRACT LINE ITEMS - ULTIMATE DEBUG
+    console.log('🔍 EXTRACTING LINE ITEMS...');
+    data.items = ultimateDebugExtractLineItems(cleanText);
+
+    // CREATE SUMMARY
     data.summary = {
       subtotal: data.subtotal,
       discount: data.discount,
@@ -1003,77 +972,71 @@ async function superEnhancedParsePDFContent(text) {
       totalItemsValue: data.items.reduce((sum, item) => sum + item.amount, 0)
     };
 
-    // Log final parsing results for debugging
-    console.log('🔍 Super Enhanced Final parsing results:');
-    console.log({
-      type: data.type,
-      quotationNumber: data.quotationNumber,
-      customerName: data.customerName,
-      customerCode: data.customerCode,
-      date: data.date,
-      total: data.total,
-      subtotal: data.subtotal,
-      vatAmount: data.vatAmount,
-      itemCount: data.items.length,
-      itemsWithRemarks: data.summary.itemsWithRemarks,
-      totalRemarksCount: data.summary.totalRemarksCount,
-      summary: data.summary
-    });
+    // FINAL DEBUG LOG
+    console.log('🎯🎯🎯 ULTIMATE DEBUG FINAL RESULTS 🎯🎯🎯');
+    console.log('Type:', data.type);
+    console.log('Quotation Number:', data.quotationNumber);
+    console.log('Customer Name:', data.customerName);
+    console.log('Customer Code:', data.customerCode);
+    console.log('Date:', data.date);
+    console.log('Total:', data.total);
+    console.log('Subtotal:', data.subtotal);
+    console.log('VAT Amount:', data.vatAmount);
+    console.log('Items Count:', data.items.length);
+    console.log('Summary:', data.summary);
+    console.log('🚀🚀🚀 ULTIMATE DEBUG PARSING END 🚀🚀🚀');
     
     return data;
 
   } catch (error) {
-    console.error('❌ Super Enhanced PDF parsing error:', error);
+    console.error('❌ ULTIMATE DEBUG parsing error:', error);
     return data;
   }
 }
 
-// SUPER ENHANCED LINE ITEMS EXTRACTION FUNCTION
-function superEnhancedExtractLineItems(cleanText) {
+// ULTIMATE DEBUG LINE ITEMS EXTRACTION
+function ultimateDebugExtractLineItems(cleanText) {
+  console.log('📋📋📋 ULTIMATE DEBUG LINE ITEMS START 📋📋📋');
+  
   const items = [];
   
   try {
-    console.log('📋 Starting super enhanced line items extraction...');
-    
-    // Robust line item patterns หลังจาก super clean แล้ว
+    // Find item patterns with ULTIMATE DEBUG
     const itemPatterns = [
-      // Pattern 1: รูปแบบหลักหลังจาก clean - ใช้ flexible spacing
-      /(\d+)\s*([^0-9]+?)\s+(\d+\.?\d*)\s+(ห่อ|ตัว|อัน|หลอด|ม้วน|แผ่น|เมตร|ชิ้น|กิโลกรัม|กรัม)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g,
+      // Pattern 1: Standard format
+      /(\d+)\s*([^0-9]+?)\s+(\d+\.?\d*)\s+(ห่อ|ตัว|อัน|หลอด|ม้วน|แผ่น|เมตร|ชิ้น)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g,
       
-      // Pattern 2: รูปแบบ relaxed มากขึ้น
-      /(\d+)[^0-9]*([^\d]+?)\s+(\d+\.?\d*)\s+(ห่อ|ตัว|อัน|หลอด|ม้วน)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g,
+      // Pattern 2: Flexible format
+      /(\d+)[^0-9]*([ก-ฮa-zA-Z][^0-9]{10,80}?)\s+(\d+\.?\d*)\s+(ห่อ|ตัว|อัน|หลอด|ม้วน)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g,
       
-      // Pattern 3: Fallback pattern สำหรับกรณีที่ยากมาก
-      /(\d+)[^\d]*?([ก-ฮa-zA-Z].{10,80}?)\s+(\d+\.?\d*)\s+(\w+)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g
+      // Pattern 3: Very loose format
+      /(\d+)[^ก-ฮa-zA-Z]*([ก-ฮa-zA-Z].{5,100}?)\s+(\d+\.?\d*)\s+(\w+)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g
     ];
     
     for (let patternIndex = 0; patternIndex < itemPatterns.length; patternIndex++) {
       const pattern = itemPatterns[patternIndex];
       const matches = [...cleanText.matchAll(pattern)];
       
-      console.log(`📋 Super pattern ${patternIndex + 1}: Found ${matches.length} potential matches`);
+      console.log(`📋 Line items pattern ${patternIndex + 1}: Found ${matches.length} matches`);
       
       for (const match of matches) {
         try {
           const [fullMatch, lineNo, description, qty, unit, unitPrice, amount] = match;
           
-          // ทำความสะอาด description อย่างละเอียด
+          console.log(`🔍 Processing match: [${lineNo}] "${description.substring(0, 30)}..." ${qty} ${unit} × ${unitPrice} = ${amount}`);
+          
+          // Clean description
           let cleanDesc = description
-            .replace(/^\s*/, '') // ลบ space หน้า
-            .replace(/\s+/g, ' ') // normalize spaces
-            .replace(/[""]/g, '"') // normalize quotes
-            .replace(/[\(\)]/g, match => match) // keep parentheses
+            .replace(/^\s*/, '')
+            .replace(/\s+/g, ' ')
             .trim();
           
-          // กรองข้อมูลที่ไม่ต้องการ
-          if (cleanDesc.includes('รวมเป็นเงิน') || 
-              cleanDesc.includes('หัก') || 
-              cleanDesc.includes('ภาษี') || 
-              cleanDesc.includes('รวมทั้งสิ้น') ||
-              cleanDesc.includes('Subtotal') ||
-              cleanDesc.includes('VAT') ||
-              cleanDesc.includes('Net Amount') ||
-              cleanDesc.length < 5) {
+          // Filter invalid items
+          const invalidKeywords = ['รวมเป็นเงิน', 'หัก', 'ภาษี', 'รวมทั้งสิ้น', 'Subtotal', 'VAT', 'Net Amount'];
+          const isInvalid = invalidKeywords.some(keyword => cleanDesc.includes(keyword));
+          
+          if (isInvalid || cleanDesc.length < 5) {
+            console.log(`❌ Rejected item: "${cleanDesc}" (invalid)`);
             continue;
           }
           
@@ -1081,12 +1044,11 @@ function superEnhancedExtractLineItems(cleanText) {
           const parsedUnitPrice = parseFloat(unitPrice);
           const parsedAmount = parseFloat(amount.replace(/,/g, ''));
           
-          // ตรวจสอบความถูกต้องของข้อมูล
           if (parsedQty > 0 && parsedUnitPrice > 0 && parsedAmount > 0) {
             const item = {
               lineNumber: parseInt(lineNo),
               description: cleanDesc,
-              fullDescription: cleanDesc, // Will be updated if remarks found
+              fullDescription: cleanDesc,
               quantity: parsedQty,
               unit: unit,
               unitPrice: parsedUnitPrice,
@@ -1095,10 +1057,10 @@ function superEnhancedExtractLineItems(cleanText) {
               remarks: [],
               hasRemarks: false,
               remarkCount: 0,
-              extractionMethod: `super_enhanced_pattern_${patternIndex + 1}`
+              extractionMethod: `ultimate_debug_pattern_${patternIndex + 1}`
             };
             
-            // ตรวจสอบว่าไม่มีรายการซ้ำ
+            // Check for duplicates
             const isDuplicate = items.some(existing => 
               existing.lineNumber === item.lineNumber || 
               (existing.description === item.description && existing.amount === item.amount)
@@ -1106,17 +1068,20 @@ function superEnhancedExtractLineItems(cleanText) {
             
             if (!isDuplicate) {
               items.push(item);
-              console.log(`✅ Super added item ${item.lineNumber}: ${item.description} (${item.quantity} ${item.unit} × ${item.unitPrice} = ${item.amount})`);
+              console.log(`✅ Added item ${item.lineNumber}: ${item.description} (${item.quantity} ${item.unit} × ${item.unitPrice} = ${item.amount})`);
+            } else {
+              console.log(`❌ Rejected duplicate item: ${item.lineNumber}`);
             }
+          } else {
+            console.log(`❌ Rejected item with invalid numbers: qty=${parsedQty}, price=${parsedUnitPrice}, amount=${parsedAmount}`);
           }
         } catch (itemError) {
-          console.log(`⚠️ Error parsing item: ${itemError.message}`);
+          console.log(`⚠️ Error processing item: ${itemError.message}`);
         }
       }
       
-      // หากเจอรายการแล้วให้หยุด pattern อื่น
       if (items.length > 0) {
-        console.log(`✅ Successfully extracted items using super pattern ${patternIndex + 1}`);
+        console.log(`✅ Successfully extracted ${items.length} items using pattern ${patternIndex + 1}`);
         break;
       }
     }
@@ -1124,15 +1089,16 @@ function superEnhancedExtractLineItems(cleanText) {
     // Sort by line number
     items.sort((a, b) => a.lineNumber - b.lineNumber);
     
-    console.log(`📋 Super enhanced extraction complete: ${items.length} items found`);
+    console.log(`📋 ULTIMATE DEBUG line items extraction complete: ${items.length} items found`);
     items.forEach((item, index) => {
       console.log(`  ${index + 1}. [${item.lineNumber}] ${item.description} - ${item.quantity} ${item.unit} × ${item.unitPrice} = ${item.amount}`);
     });
+    console.log('📋📋📋 ULTIMATE DEBUG LINE ITEMS END 📋📋📋');
     
     return items;
     
   } catch (error) {
-    console.error('❌ Super enhanced line items extraction error:', error);
+    console.error('❌ ULTIMATE DEBUG line items extraction error:', error);
     return [];
   }
 }
@@ -1167,7 +1133,7 @@ async function saveUploadRecord(file, extractedText, parsedData) {
     const result = await pool.query(query, values);
     
     // Also log the processing
-    await logSystemActivity('pdf_upload_super_enhanced_v4', {
+    await logSystemActivity('pdf_upload_ultimate_debug_v5', {
       file: file.filename,
       originalName: file.originalname,
       parsedType: parsedData.type,
@@ -1181,10 +1147,10 @@ async function saveUploadRecord(file, extractedText, parsedData) {
       itemsWithRemarks: parsedData.summary.itemsWithRemarks,
       totalRemarksCount: parsedData.summary.totalRemarksCount,
       textLength: extractedText.length,
-      parsingVersion: 'super_enhanced_v4'
+      parsingVersion: 'ultimate_debug_v5'
     });
 
-    console.log('✅ Super enhanced upload record saved:', result.rows[0].attachment_id);
+    console.log('✅ ULTIMATE DEBUG upload record saved:', result.rows[0].attachment_id);
     return result.rows[0];
   } catch (error) {
     console.error('❌ Database save error:', error);
@@ -1219,15 +1185,15 @@ async function sendToN8N(file, extractedText, parsedData) {
       items: parsedData.items, // Include line items with remarks
       summary: parsedData.summary, // Include summary
       documentDate: parsedData.date,
-      source: 'pk-crm-pdf-upload-super-enhanced-v4',
+      source: 'pk-crm-pdf-upload-ultimate-debug-v5',
       webhookUrl: n8nWebhookUrl,
       timestamp: new Date().toISOString(),
       processedAt: new Date().toISOString(),
-      parsingVersion: 'super_enhanced_v4'
+      parsingVersion: 'ultimate_debug_v5'
     };
 
-    console.log('🔗 Sending super enhanced data to N8N:', n8nWebhookUrl);
-    console.log('📊 Payload summary:', {
+    console.log('🔗 Sending ULTIMATE DEBUG data to N8N:', n8nWebhookUrl);
+    console.log('📊 ULTIMATE DEBUG Payload summary:', {
       documentType: payload.documentType,
       documentNumber: payload.documentNumber,
       totalAmount: payload.totalAmount,
@@ -1245,7 +1211,7 @@ async function sendToN8N(file, extractedText, parsedData) {
       }
     });
 
-    console.log('✅ Super Enhanced N8N webhook successful:', response.status);
+    console.log('✅ ULTIMATE DEBUG N8N webhook successful:', response.status);
     return response.data;
   } catch (error) {
     console.error('❌ N8N webhook failed:', error.response?.status, error.message);
@@ -1303,15 +1269,15 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 PK CRM Super Enhanced PDF Upload Server running on port', PORT);
+  console.log('🚀 PK CRM ULTIMATE DEBUG PDF Upload Server running on port', PORT);
   console.log('📄 Local: http://localhost:' + PORT);
   console.log('🌐 Public: https://pkcrm.pktechnic.com');
   console.log('🔍 Health: http://localhost:' + PORT + '/health');
   console.log('📊 API: http://localhost:' + PORT + '/api/files');
   console.log('🔗 N8N Webhook: https://n8npkapp.pktechnic.com/webhook-test/uploadPdf');
-  console.log('✨ Features: Super Text Cleaning, Robust Extraction, Enhanced PDF Parser v4, Remarks Support, Line Items, Upload, Download, Delete, File Management, N8N Integration');
-  console.log('🔧 Parser Version: Super Enhanced v4 with Robust Text Cleaning');
-  console.log('🧽 Special Features: Control character removal, Broken word reconstruction, Multi-pattern extraction');
+  console.log('✨ Features: ULTIMATE DEBUG, Full Console Logging, Specific Pattern Matching, Enhanced PDF Parser v5, File Management, N8N Integration');
+  console.log('🔧 Parser Version: ULTIMATE DEBUG v5 with Full Logging and Pattern Analysis');
+  console.log('🚨 Special Features: Step-by-step debugging, Pattern match analysis, Context extraction');
 });
 
 // Graceful shutdown
