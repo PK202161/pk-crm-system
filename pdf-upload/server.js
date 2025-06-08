@@ -741,105 +741,134 @@ async function parsePDFContent(text) {
   };
 
   try {
-    // Enhanced document type detection
-    if (text.includes('ใบเสนอราคา') || text.includes('QUOTATION') || /QT\d{7}/.test(text)) {
+    // ทำความสะอาดข้อความ
+    const cleanText = text
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ') // ลบ control chars
+      .replace(/\s+/g, ' ') // ลดช่องว่างซ้ำ
+      .replace(/\n+/g, ' ') // เปลี่ยนขึ้นบรรทัดใหม่เป็น space
+      .trim();
+
+    // ตรวจสอบประเภทเอกสาร
+    if (cleanText.includes('ใบเสนอราคา') || cleanText.includes('QUOTATION') || /QT\d{7}/.test(cleanText)) {
       data.type = 'quotation';
-      
-      // Extract quotation number - multiple patterns
       const quotePatterns = [
-        /เลขที่ใบเสนอราคา[:\s]*(QT\d{7})/i,
-        /เลขที่[:\s]*(QT\d{7})/i,
+        /เลขที.*ใบเสนอราคา[:\s]*(QT\d{7})/i,
+        /QT(\d{7})/g,
         /(QT\d{7})/g
       ];
-      
       for (const pattern of quotePatterns) {
-        const match = text.match(pattern);
+        const match = cleanText.match(pattern);
         if (match) {
-          data.quotationNumber = match[1] || match[0];
+          data.quotationNumber = match[1] ? 'QT' + match[1] : match[0];
           break;
         }
       }
-    }
-    
-    else if (text.includes('ใบสั่งขาย') || text.includes('SALES ORDER') || /SO\d{7}/.test(text)) {
+    } else if (cleanText.includes('ใบสั่งขาย') || cleanText.includes('SALES ORDER') || /SO\d{7}/.test(cleanText)) {
       data.type = 'sales_order';
-      
-      // Extract SO number
       const soPatterns = [
-        /เลขที่ใบสั่งขาย[:\s]*(SO\d{7})/i,
-        /เลขที่[:\s]*(SO\d{7})/i,
+        /เลขที.*สั่งขาย[:\s]*(SO\d{7})/i,
+        /SO(\d{7})/g,
         /(SO\d{7})/g
       ];
-      
       for (const pattern of soPatterns) {
-        const match = text.match(pattern);
+        const match = cleanText.match(pattern);
         if (match) {
-          data.quotationNumber = match[1] || match[0];
+          data.quotationNumber = match[1] ? 'SO' + match[1] : match[0];
           break;
         }
       }
     }
 
-    // Extract customer code
-    const customerCodeMatch = text.match(/(CU\d+)/);
+    // รหัสลูกค้า
+    const customerCodeMatch = cleanText.match(/(CU\d+)/);
     if (customerCodeMatch) {
       data.customerCode = customerCodeMatch[1];
     }
 
-    // Extract customer name - multiple patterns
+    // ชื่อลูกค้า (เลี่ยงชื่อบริษัทเรา)
     const customerPatterns = [
-      /บริษัท\s+([^\n\r]+?)\s+จำกัด/i,
-      /ลูกค้า[:\s]*([^\n\r]+?)(?:\s+CU\d+|$)/i,
-      /ถึง[:\s]*([^\n\r]+?)(?:\s+CU\d+|$)/i,
-      /บริษัท[:\s]+([^\n\r]+)/i
+      /CU\d+\s+บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จำกัด/i,
+      /CU\d+\s+บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จํากัด/i,
+      /(?:To|ถึง)[:\s]+.*?บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จำกัด/i,
+      /(?:To|ถึง)[:\s]+.*?บริษัท\s+([^พ][^\s]+(?:\s+[^\s]+)*?)\s+จํากัด/i,
+      /CU\d+[:\s]+([^พ][^\n\r]+?(?:จำกัด|จํากัด))/i,
+      /บริษัท\s+([^พ\s][^\n\r]+?)\s+(?:จำกัด|จํากัด)/i
     ];
-    
     for (const pattern of customerPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        data.customerName = match[1].trim();
-        if (data.customerName.includes('จำกัด')) {
-          data.customerName = data.customerName + ' จำกัด';
+      const match = cleanText.match(pattern);
+      if (match && match[1]) {
+        let customerName = match[1].trim();
+        if (!customerName.includes('พี.เค.เทคนิค') &&
+            !customerName.toLowerCase().includes('pktechnic') &&
+            customerName.length > 3) {
+          customerName = customerName
+            .replace(/\s+/g, ' ')
+            .replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s\(\)]/g, '')
+            .trim();
+          if (!customerName.includes('จำกัด') && !customerName.includes('จํากัด')) {
+            customerName += ' จำกัด';
+          }
+          data.customerName = `บริษัท ${customerName}`;
+          break;
         }
-        break;
-      }
-    }
-      
-    // Extract date
-    const dateMatch = text.match(/วันที่[:\s]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
-    if (dateMatch) {
-      data.date = dateMatch[1];
-    }
-      
-    // Extract total amount - multiple patterns
-    const totalPatterns = [
-      /รวมทั้งสิ้น[:\s]*([\d,]+\.?\d*)/i,
-      /จำนวนเงินรวมทั้งสิ้น[:\s]*([\d,]+\.?\d*)/i,
-      /ยอดรวม[:\s]*([\d,]+\.?\d*)/i,
-      /Net\s+Amount[:\s]*([\d,]+\.?\d*)/i
-    ];
-    
-    for (const pattern of totalPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        data.total = parseFloat(match[1].replace(/,/g, ''));
-        break;
       }
     }
 
-    console.log('📊 Parsed data:', {
+    // วันที่
+    const datePatterns = [
+      /วันที.*?(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /Date[:\s]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/g
+    ];
+    for (const pattern of datePatterns) {
+      const matches = cleanText.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const dateStr = match[1] || match[0];
+          if (dateStr && dateStr.includes('/')) {
+            data.date = dateStr;
+            break;
+          }
+        }
+        if (data.date) break;
+      }
+    }
+
+    // ยอดเงินรวม
+    const totalPatterns = [
+      /รวมทั้งสิ้น[:\s]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      /จำนวนเงินรวมทั้งสิ้น[:\s]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      /Net\s+Amount[:\s]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      /รวม[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      /(\d{1,3}(?:,\d{3})+(?:\.\d{2})?)/g
+    ];
+    for (const pattern of totalPatterns) {
+      const matches = cleanText.match(pattern);
+      if (matches) {
+        const amountStr = matches[1] || matches[0];
+        const amount = parseFloat(amountStr.replace(/,/g, ''));
+        if (amount > 100) { // กรองเฉพาะยอดเงินที่ดูสมเหตุสมผล
+          data.total = amount;
+          break;
+        }
+      }
+    }
+
+    // log สำหรับ debug
+    console.log('🔍 Enhanced parsing results:');
+    console.log({
       type: data.type,
-      number: data.quotationNumber,
-      customer: data.customerName,
+      quotationNumber: data.quotationNumber,
+      customerName: data.customerName,
       customerCode: data.customerCode,
-      total: data.total,
-      date: data.date
+      date: data.date,
+      total: data.total
     });
-    
+
     return data;
 
   } catch (error) {
-    console.error('❌ PDF parsing error:', error);
+    console.error('❌ Enhanced PDF parsing error:', error);
     return data;
   }
 }
