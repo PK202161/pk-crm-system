@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PK CRM - CSV Upload System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            color: #667eea;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .result-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-file-csv"></i> PK CRM - CSV Upload System</h1>
+            <p>ระบบประมวลผลไฟล์ CSV สำหรับใบเสนอราคาและใบสั่งขาย (เวอร์ชัน 2.0)</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="section-title">
+                <i class="fas fa-cloud-upload-alt"></i>
+                อัปโหลดไฟล์ CSV
+            </div>
+            
+            <div class="upload-area" onclick="document.getElementById('csvFile').click()">
+                <div class="upload-icon">
+                    <i class="fas fa-file-csv"></i>
+                </div>
+                <div class="upload-text">
+                    คลิกหรือลากไฟล์ CSV มาวางที่นี่
+                </div>
+                <div style="font-size: 0.9rem; color: #999; margin-bottom: 15px;">
+                    รองรับไฟล์ CSV ขนาดไม่เกิน 10MB
+                </div>
+                <button class="upload-btn">
+                    <i class="fas fa-folder-open"></i> เลือกไฟล์
+                </button>
+            </div>
+
+            <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileSelect(event)">
+            
+            <div id="message"></div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="section-title">
+                <i class="fas fa-chart-line"></i>
+                ผลการประมวลผล
+            </div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('csvFile', file);
+
+            const messageDiv = document.getElementById('message');
+            const resultSection = document.getElementById('resultSection');
+            const resultsDiv = document.getElementById('results');
+
+            // Show loading
+            messageDiv.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div class="loading"></div>
+                    <p>กำลังประมวลผลไฟล์ CSV...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    messageDiv.innerHTML = `
+                        <div class="success-message">
+                            <i class="fas fa-check-circle"></i>
+                            ประมวลผลไฟล์ CSV สำเร็จ!
+                        </div>
+                    `;
+
+                    resultsDiv.innerHTML = `
+                        <div style="background: #f8f9fa; border-radius: 10px; padding: 20px;">
+                            <h3><i class="fas fa-file-alt"></i> ${result.file.originalName}</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                                <div style="background: white; padding: 15px; border-radius: 8px;">
+                                    <strong>ประเภทเอกสาร:</strong><br>
+                                    ${getDocumentTypeText(result.parsing.documentType)}
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px;">
+                                    <strong>เลขที่เอกสาร:</strong><br>
+                                    ${result.summary.documentNumber || 'ไม่ระบุ'}
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px;">
+                                    <strong>ลูกค้า:</strong><br>
+                                    ${result.summary.customerName || 'ไม่ระบุ'}
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px;">
+                                    <strong>ยอดรวม:</strong><br>
+                                    ${formatCurrency(result.summary.grandTotal)}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultSection.style.display = 'block';
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            เกิดข้อผิดพลาด: ${result.error}
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                messageDiv.innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        เกิดข้อผิดพลาด: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function getDocumentTypeText(type) {
+            switch(type) {
+                case 'quotation': return 'ใบเสนอราคา';
+                case 'sales_order': return 'ใบสั่งขาย';
+                default: return 'ไม่ระบุ';
+            }
+        }
+
+        function formatCurrency(amount) {
+            if (!amount) return 'ไม่ระบุ';
+            return new Intl.NumberFormat('th-TH', {
+                style: 'currency',
+                currency: 'THB'
+            }).format(amount);
+        }
+    </script>
+</body>
+</html>

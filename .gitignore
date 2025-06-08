@@ -1,38 +1,28 @@
 # Dependencies
-node_modules/
+/node_modules
+/systems/pdf-system/node_modules
+/systems/csv-system/node_modules
+
+# Logs
+/logs
+*.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Uploads & Data
+/uploads
+/systems/pdf-system/uploads
+/systems/pdf-system/pdf-upload
 
 # Environment variables
 .env
 .env.local
-.env.production
+.env.*.local
 
-# Database
-*.sql
-database/backups/
+# Backups
+/pk-crm-backup-*/
 
-# Logs
-logs/
-*.log
-
-# Uploads and temp files
-uploads/
-temp/
-public/uploads/
-
-# Runtime
-.cache/
-dist/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
-
-# Docker
-docker-compose.override.yml
