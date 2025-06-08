@@ -13,7 +13,7 @@ const pool = new Pool({
 });
 
 const app = express();
-const PORT = 3003; // ใช้ port 3003 เพื่อไม่ชนกับระบบเดิม
+const PORT = 3003;
 
 // Middleware
 app.use(cors());
@@ -55,10 +55,11 @@ const upload = multer({
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
-    message: 'PK CRM PDF Upload Server is running',
+    message: 'PK CRM Enhanced PDF Upload Server with Remarks Support',
     timestamp: new Date().toISOString(),
     port: PORT,
-    features: ['PDF Upload', 'File Management', 'N8N Integration', 'Database Storage']
+    features: ['PDF Upload', 'Enhanced PDF Parser', 'Remarks Support', 'File Management', 'N8N Integration', 'Database Storage'],
+    version: 'enhanced_v3_remarks'
   });
 });
 
@@ -93,7 +94,7 @@ app.get('/', async (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PK CRM - PDF Upload System</title>
+    <title>PK CRM - Enhanced PDF Upload with Remarks Support</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -261,8 +262,8 @@ app.get('/', async (req, res) => {
     <div class="container">
         <div class="header">
             <h1>🏢 PK CRM</h1>
-            <h2>PDF Upload & Processing System</h2>
-            <div class="status">✅ ระบบออนไลน์ | Database เชื่อมต่อ | N8N พร้อม</div>
+            <h2>Enhanced PDF Upload System with Remarks Support</h2>
+            <div class="status">✅ ระบบออนไลน์ | Enhanced Parser v3 | รองรับหมายเหตุ | Database เชื่อมต่อ | N8N พร้อม</div>
         </div>
         
         <div class="content">
@@ -282,7 +283,7 @@ app.get('/', async (req, res) => {
             </div>
             
             <div class="upload-section">
-                <h3>📄 อัพโหลด PDF ใหม่</h3>
+                <h3>📄 อัพโหลด PDF ใหม่ (รองรับหมายเหตุในรายการสินค้า)</h3>
                 <form class="upload-form" id="uploadForm" enctype="multipart/form-data">
                     <input type="file" name="pdf" accept=".pdf" required id="fileInput">
                     <button type="submit" class="btn" id="uploadBtn">🚀 อัพโหลด</button>
@@ -363,7 +364,7 @@ app.get('/', async (req, res) => {
                 const result = await response.json();
                 
                 if (result.success) {
-                    showAlert('อัพโหลดสำเร็จ! 🎉 กำลังประมวลผล...', 'success');
+                    showAlert('อัพโหลดสำเร็จ! 🎉 Enhanced Parser v3 ประมวลผลแล้ว (รองรับหมายเหตุ)...', 'success');
                     fileInput.value = '';
                     setTimeout(() => location.reload(), 2000);
                 } else {
@@ -464,8 +465,8 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
 
     console.log('📝 Extracted text length:', extractedText.length);
 
-    // Enhanced PDF parsing
-    const parsedData = await parsePDFContent(extractedText);
+    // Enhanced PDF parsing with remarks support
+    const parsedData = await enhancedParsePDFContent(extractedText);
 
     // Save upload record to database
     const uploadRecord = await saveUploadRecord(req.file, extractedText, parsedData);
@@ -481,7 +482,7 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
 
     res.json({
       success: true,
-      message: 'PDF uploaded and processed successfully',
+      message: 'PDF uploaded and processed successfully with Enhanced Parser v3 (Remarks Support)',
       data: {
         fileId: uploadRecord.attachment_id,
         filename: req.file.filename,
@@ -728,7 +729,7 @@ app.get('/api/files', async (req, res) => {
 
 // Helper Functions
 
-async function parsePDFContent(text) {
+async function enhancedParsePDFContent(text) {
   const data = {
     type: 'unknown',
     quotationNumber: null,
@@ -736,8 +737,18 @@ async function parsePDFContent(text) {
     customerCode: null,
     date: null,
     total: null,
+    subtotal: null,
+    vatAmount: null,
+    vatPercent: null,
+    discount: null,
     items: [],
-    rawText: text
+    summary: {},
+    rawText: text,
+    parsingEnhancements: {
+      remarksSupport: true,
+      multiLineDescriptions: true,
+      version: 'enhanced_v3_remarks'
+    }
   };
 
   try {
@@ -748,7 +759,7 @@ async function parsePDFContent(text) {
       .replace(/\n+/g, ' ') // Convert newlines to spaces
       .trim();
 
-    console.log('🧹 Cleaned text preview (first 800 chars):');
+    console.log('🧹 Enhanced Cleaned text preview (first 800 chars):');
     console.log(cleanText.substring(0, 800));
     console.log('=====================================');
 
@@ -854,53 +865,111 @@ async function parsePDFContent(text) {
         }
       }
     }
-      
-    // Enhanced total amount extraction - prioritize Grand Total
+
+    // ENHANCED TOTAL AMOUNT EXTRACTION - รุ่นปรับปรุงใหม่
     const totalPatterns = [
-      // Priority 1: Look for จำนวนเงินรวมทั้งสิ้น (Grand Total)
-      /จำนวนเงินรวมทั้งสิ้น[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
-      /รวมทั้งสิ้น[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
-      /Net\s+Amount[:\s]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      // Priority 1: Pattern เฉพาะจากเอกสารจริง - "5,596.10 จำนวนเงินรวมทั้งสิ้น"
+      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*จ[ำํ]านวนเงินรวมท[ั้]*งส[ิี]*้น/i,
       
-      // Priority 2: Look for the specific pattern in our document
-      // "5,596.10" followed by text about grand total
-      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s+จำนวนเงินรวมทั้งสิ้น/i,
+      // Priority 2: Pattern สำหรับ Net Amount 
+      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*Net\s+Amount/i,
       
-      // Priority 3: Find amounts larger than subtotal (look for amounts with .XX format)
+      // Priority 3: หาจากบริบทของตัวเลขในวงเล็บไทย
+      /\(ห้าพัน[^)]+\)\.\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      
+      // Priority 4: รูปแบบทั่วไป
+      /รวมท[ั้]*งส[ิี]*้น[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      /จ[ำํ]านวนเงินรวมท[ั้]*งส[ิี]*้น[^0-9]*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+      
+      // Priority 5: ค้นหาจากตัวเลขที่ใหญ่ที่สุด (สำหรับ fallback)
       /(\d{1,3}(?:,\d{3})*\.\d{2})/g
     ];
-    
+
     let foundAmounts = [];
-    
-    for (const pattern of totalPatterns) {
+    let debugInfo = [];
+
+    for (let i = 0; i < totalPatterns.length; i++) {
+      const pattern = totalPatterns[i];
       const matches = [...cleanText.matchAll(new RegExp(pattern.source, pattern.flags))];
+      
       for (const match of matches) {
         const amountStr = match[1];
         const amount = parseFloat(amountStr.replace(/,/g, ''));
         
-        // Collect all valid amounts
         if (amount > 100) {
+          const context = cleanText.substr(Math.max(0, match.index - 50), 150);
           foundAmounts.push({
             amount: amount,
             original: amountStr,
-            priority: totalPatterns.findIndex(p => p.source === pattern.source)
+            priority: i,
+            context: context.trim(),
+            pattern: pattern.source
           });
+          
+          debugInfo.push(`Pattern ${i}: Found ${amountStr} (${amount}) in context: "${context.trim()}"`);
         }
       }
     }
-    
-    // Sort by priority (lower index = higher priority) and then by amount (higher = more likely grand total)
+
+    // Sort by priority และ amount
     foundAmounts.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return b.amount - a.amount;
     });
-    
+
+    // Debug logging
+    console.log('💰 Enhanced Amount detection debug:');
+    debugInfo.forEach(info => console.log('  ', info));
+    console.log('📊 Found amounts (sorted):', foundAmounts.slice(0, 5));
+
     if (foundAmounts.length > 0) {
       data.total = foundAmounts[0].amount;
+      console.log(`✅ Selected total: ${foundAmounts[0].original} (${foundAmounts[0].amount})`);
+    } else {
+      console.log('❌ No valid amounts found');
     }
 
-    // Log parsing results for debugging
-    console.log('🔍 Final parsing results:');
+    // ENHANCED SUBTOTAL, VAT, DISCOUNT EXTRACTION
+    // Extract subtotal
+    const subtotalMatch = cleanText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*รวมเป็นเงิน\s*Subtotal/i);
+    if (subtotalMatch) {
+      data.subtotal = parseFloat(subtotalMatch[1].replace(/,/g, ''));
+    }
+
+    // Extract VAT
+    const vatMatch = cleanText.match(/(\d+\.?\d*)\s*%\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*จ[ำํ]านวนภาษี/i);
+    if (vatMatch) {
+      data.vatPercent = parseFloat(vatMatch[1]);
+      data.vatAmount = parseFloat(vatMatch[2].replace(/,/g, ''));
+    }
+
+    // Extract discount
+    const discountMatch = cleanText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*หัก\s*ส่วนลด/i);
+    if (discountMatch) {
+      data.discount = parseFloat(discountMatch[1].replace(/,/g, ''));
+    } else {
+      data.discount = 0; // Default
+    }
+
+    // ENHANCED LINE ITEMS EXTRACTION WITH REMARKS SUPPORT
+    data.items = enhancedExtractLineItems(text);
+
+    // Create comprehensive summary
+    data.summary = {
+      subtotal: data.subtotal,
+      discount: data.discount,
+      netBeforeVat: data.subtotal - (data.discount || 0),
+      vatPercent: data.vatPercent,
+      vatAmount: data.vatAmount,
+      grandTotal: data.total,
+      itemCount: data.items.length,
+      itemsWithRemarks: data.items.filter(item => item.hasRemarks).length,
+      totalRemarksCount: data.items.reduce((sum, item) => sum + (item.remarkCount || 0), 0),
+      totalItemsValue: data.items.reduce((sum, item) => sum + item.amount, 0)
+    };
+
+    // Log final parsing results for debugging
+    console.log('🔍 Enhanced Final parsing results (with remarks support):');
     console.log({
       type: data.type,
       quotationNumber: data.quotationNumber,
@@ -908,7 +977,12 @@ async function parsePDFContent(text) {
       customerCode: data.customerCode,
       date: data.date,
       total: data.total,
-      foundAmounts: foundAmounts.slice(0, 3) // Show top 3 amounts found
+      subtotal: data.subtotal,
+      vatAmount: data.vatAmount,
+      itemCount: data.items.length,
+      itemsWithRemarks: data.summary.itemsWithRemarks,
+      totalRemarksCount: data.summary.totalRemarksCount,
+      summary: data.summary
     });
     
     return data;
@@ -917,6 +991,223 @@ async function parsePDFContent(text) {
     console.error('❌ Enhanced PDF parsing error:', error);
     return data;
   }
+}
+
+// ENHANCED LINE ITEMS EXTRACTION FUNCTION WITH REMARKS SUPPORT
+function enhancedExtractLineItems(text) {
+  const items = [];
+  
+  try {
+    console.log('📋 Starting enhanced line items extraction with remarks support...');
+    
+    // Split text into lines for better processing
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    // หาจุดเริ่มต้นและสิ้นสุดของตารางสินค้า
+    let tableStartIndex = -1;
+    let tableEndIndex = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // หาจุดเริ่มต้นตาราง - ดูจากหัวตาราง
+      if (line.includes('ลําดับ') && line.includes('รายละเอียด') && line.includes('จํานวน')) {
+        tableStartIndex = i + 1;
+        console.log(`📍 Table starts at line ${tableStartIndex}`);
+      }
+      
+      // หาจุดสิ้นสุดตาราง - ดูจาก "รวมเป็นเงิน"
+      if (line.includes('รวมเป็นเงิน') && line.includes('Subtotal')) {
+        tableEndIndex = i;
+        console.log(`📍 Table ends at line ${tableEndIndex}`);
+        break;
+      }
+    }
+    
+    if (tableStartIndex === -1) {
+      console.log('⚠️ Table start not found, using fallback patterns');
+      return fallbackItemExtraction(text);
+    }
+    
+    // ประมวลผลรายการสินค้าทีละบรรทัด
+    let currentItem = null;
+    
+    for (let i = tableStartIndex; i < (tableEndIndex > 0 ? tableEndIndex : lines.length); i++) {
+      const line = lines[i];
+      
+      // Skip empty lines and lines with only spaces/dots
+      if (!line || line.match(/^[\s\.]*$/)) continue;
+      
+      console.log(`🔍 Processing line ${i}: "${line}"`);
+      
+      // Pattern หลักสำหรับรายการสินค้า
+      // ตัวอย่าง: "  1เคเบิลไทร์ 12" สีขาว(100เส้น/ห่อ)       3.0 ห่อ        80.00        240.00"
+      const mainItemPattern = /^\s*(\d+)\s*([^0-9]+?)\s+(\d+\.?\d*)\s+(ห่อ|ตัว|อัน|หลอด|ม้วน|แผ่น|เมตร|ชิ้น|กิโลกรัม|กรัม)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)\s*$/;
+      
+      const match = line.match(mainItemPattern);
+      
+      if (match) {
+        // พบรายการสินค้าใหม่
+        if (currentItem) {
+          // บันทึกรายการก่อนหน้า
+          items.push(currentItem);
+        }
+        
+        const [, lineNo, description, qty, unit, unitPrice, amount] = match;
+        
+        currentItem = {
+          lineNumber: parseInt(lineNo),
+          description: cleanDescription(description),
+          quantity: parseFloat(qty),
+          unit: unit.trim(),
+          unitPrice: parseFloat(unitPrice),
+          amount: parseFloat(amount.replace(/,/g, '')),
+          remarks: [], // เก็บหมายเหตุ
+          rawLines: [line] // เก็บ original lines
+        };
+        
+        console.log(`✅ Found item ${currentItem.lineNumber}: ${currentItem.description}`);
+        
+      } else if (currentItem) {
+        // อาจเป็นหมายเหตุของรายการปัจจุบัน
+        const remarkLine = cleanRemarkLine(line);
+        
+        if (remarkLine && remarkLine.length > 2) {
+          // ตรวจสอบว่าเป็นหมายเหตุจริงหรือไม่
+          if (isValidRemark(remarkLine)) {
+            currentItem.remarks.push(remarkLine);
+            currentItem.rawLines.push(line);
+            console.log(`📝 Added remark to item ${currentItem.lineNumber}: "${remarkLine}"`);
+          }
+        }
+      }
+    }
+    
+    // เพิ่มรายการสุดท้าย
+    if (currentItem) {
+      items.push(currentItem);
+    }
+    
+    // ปรับปรุงรายการที่มีหมายเหตุ
+    const finalItems = items.map(item => {
+      if (item.remarks.length > 0) {
+        return {
+          ...item,
+          fullDescription: `${item.description} (${item.remarks.join(', ')})`,
+          hasRemarks: true,
+          remarkCount: item.remarks.length
+        };
+      } else {
+        return {
+          ...item,
+          fullDescription: item.description,
+          hasRemarks: false,
+          remarkCount: 0
+        };
+      }
+    });
+    
+    console.log(`📋 Enhanced extraction complete: ${finalItems.length} items found`);
+    finalItems.forEach((item, index) => {
+      console.log(`  ${index + 1}. [${item.lineNumber}] ${item.fullDescription} - ${item.quantity} ${item.unit} × ${item.unitPrice} = ${item.amount}${item.hasRemarks ? ` (${item.remarkCount} remarks)` : ''}`);
+    });
+    
+    return finalItems;
+    
+  } catch (error) {
+    console.error('❌ Enhanced line items extraction error:', error);
+    return fallbackItemExtraction(text);
+  }
+}
+
+function cleanDescription(description) {
+  return description
+    .replace(/^\s*/, '') // ลบ space หน้า
+    .replace(/\s+/g, ' ') // normalize spaces
+    .replace(/[""]/g, '"') // normalize quotes
+    .trim();
+}
+
+function cleanRemarkLine(line) {
+  return line
+    .replace(/^\s*[-•*]\s*/, '') // ลบ bullet points
+    .replace(/^\s*/, '') // ลบ spaces
+    .replace(/\s+/g, ' ') // normalize spaces
+    .trim();
+}
+
+function isValidRemark(text) {
+  // ตรวจสอบว่าเป็นหมายเหตุจริงหรือไม่
+  const invalidPatterns = [
+    /^\d+$/, // เฉพาะตัวเลข
+    /^[\s\.]*$/, // เฉพาะ space และ dot
+    /รวมเป็นเงิน/i,
+    /subtotal/i,
+    /ภาษี/i,
+    /vat/i,
+    /discount/i,
+    /ส่วนลด/i,
+    /total/i,
+    /รวม/i
+  ];
+  
+  // ตรวจสอบว่าไม่ใช่ pattern ที่ไม่ต้องการ
+  for (const pattern of invalidPatterns) {
+    if (pattern.test(text)) {
+      return false;
+    }
+  }
+  
+  // ตรวจสอบว่ามีความยาวพอสม
+  return text.length >= 3 && text.length <= 200;
+}
+
+// Fallback extraction เมื่อไม่พบโครงสร้างตาราง
+function fallbackItemExtraction(text) {
+  console.log('🔄 Using fallback item extraction...');
+  
+  const items = [];
+  const itemPatterns = [
+    // Pattern หลัก
+    /\s*(\d+)\s*([^0-9]+?)\s+(\d+\.?\d*)\s+(ห่อ|ตัว|อัน|หลอด|ม้วน|แผ่น|เมตร|ชิ้น)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)/g,
+    
+    // Pattern รอง
+    /^\s*(\d+)\s*(.+?)\s+(\d+\.?\d*)\s+(\w+)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)\s*$/gm
+  ];
+  
+  for (const pattern of itemPatterns) {
+    const matches = [...text.matchAll(pattern)];
+    
+    for (const match of matches) {
+      try {
+        const [, lineNo, description, qty, unit, unitPrice, amount] = match;
+        
+        const cleanDesc = cleanDescription(description);
+        
+        if (cleanDesc.length > 5 && parseFloat(qty) > 0) {
+          items.push({
+            lineNumber: parseInt(lineNo),
+            description: cleanDesc,
+            fullDescription: cleanDesc,
+            quantity: parseFloat(qty),
+            unit: unit,
+            unitPrice: parseFloat(unitPrice),
+            amount: parseFloat(amount.replace(/,/g, '')),
+            remarks: [],
+            hasRemarks: false,
+            remarkCount: 0,
+            extractionMethod: 'fallback'
+          });
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (items.length > 0) break;
+  }
+  
+  return items.sort((a, b) => a.lineNumber - b.lineNumber);
 }
 
 async function saveUploadRecord(file, extractedText, parsedData) {
@@ -949,7 +1240,7 @@ async function saveUploadRecord(file, extractedText, parsedData) {
     const result = await pool.query(query, values);
     
     // Also log the processing
-    await logSystemActivity('pdf_upload', {
+    await logSystemActivity('pdf_upload_enhanced_v3', {
       file: file.filename,
       originalName: file.originalname,
       parsedType: parsedData.type,
@@ -957,10 +1248,16 @@ async function saveUploadRecord(file, extractedText, parsedData) {
       customerName: parsedData.customerName,
       customerCode: parsedData.customerCode,
       totalAmount: parsedData.total,
-      textLength: extractedText.length
+      subtotal: parsedData.subtotal,
+      vatAmount: parsedData.vatAmount,
+      itemCount: parsedData.items.length,
+      itemsWithRemarks: parsedData.summary.itemsWithRemarks,
+      totalRemarksCount: parsedData.summary.totalRemarksCount,
+      textLength: extractedText.length,
+      parsingVersion: 'enhanced_v3_remarks'
     });
 
-    console.log('✅ Upload record saved:', result.rows[0].attachment_id);
+    console.log('✅ Enhanced upload record saved:', result.rows[0].attachment_id);
     return result.rows[0];
   } catch (error) {
     console.error('❌ Database save error:', error);
@@ -985,23 +1282,41 @@ async function sendToN8N(file, extractedText, parsedData) {
       customerName: parsedData.customerName,
       customerCode: parsedData.customerCode,
       totalAmount: parsedData.total,
+      subtotal: parsedData.subtotal,
+      vatAmount: parsedData.vatAmount,
+      vatPercent: parsedData.vatPercent,
+      discount: parsedData.discount,
+      itemCount: parsedData.items.length,
+      itemsWithRemarks: parsedData.summary.itemsWithRemarks,
+      totalRemarksCount: parsedData.summary.totalRemarksCount,
+      items: parsedData.items, // Include line items with remarks
+      summary: parsedData.summary, // Include summary
       documentDate: parsedData.date,
-      source: 'pk-crm-pdf-upload',
+      source: 'pk-crm-pdf-upload-enhanced-v3-remarks',
       webhookUrl: n8nWebhookUrl,
       timestamp: new Date().toISOString(),
-      processedAt: new Date().toISOString()
+      processedAt: new Date().toISOString(),
+      parsingVersion: 'enhanced_v3_remarks'
     };
 
-    console.log('🔗 Sending to N8N:', n8nWebhookUrl);
+    console.log('🔗 Sending enhanced data with remarks support to N8N:', n8nWebhookUrl);
+    console.log('📊 Payload summary:', {
+      documentType: payload.documentType,
+      documentNumber: payload.documentNumber,
+      totalAmount: payload.totalAmount,
+      itemCount: payload.itemCount,
+      itemsWithRemarks: payload.itemsWithRemarks,
+      totalRemarksCount: payload.totalRemarksCount
+    });
 
     const response = await axios.post(n8nWebhookUrl, payload, {
-      timeout: 10000,
+      timeout: 15000, // เพิ่ม timeout เพราะ payload ใหญ่ขึ้น
       headers: {
         'Content-Type': 'application/json'
       }
     });
 
-    console.log('✅ N8N webhook successful:', response.status);
+    console.log('✅ Enhanced N8N webhook successful (with remarks):', response.status);
     return response.data;
   } catch (error) {
     console.error('❌ N8N webhook failed:', error.response?.status, error.message);
@@ -1059,13 +1374,15 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 PK CRM PDF Upload Server running on port', PORT);
+  console.log('🚀 PK CRM Enhanced PDF Upload Server with Remarks Support running on port', PORT);
   console.log('📄 Local: http://localhost:' + PORT);
   console.log('🌐 Public: https://pkcrm.pktechnic.com');
   console.log('🔍 Health: http://localhost:' + PORT + '/health');
   console.log('📊 API: http://localhost:' + PORT + '/api/files');
   console.log('🔗 N8N Webhook: https://n8npkapp.pktechnic.com/webhook-test/uploadPdf');
-  console.log('✨ Features: Upload, Download, Delete, File Management, N8N Integration');
+  console.log('✨ Features: Enhanced PDF Parser v3, Remarks Support, Line Items, Upload, Download, Delete, File Management, N8N Integration');
+  console.log('🔧 Parser Version: Enhanced v3 with Remarks Support');
+  console.log('📝 Special Features: Multi-line descriptions, Remarks detection, Item-level notes');
 });
 
 // Graceful shutdown
