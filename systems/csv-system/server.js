@@ -2,8 +2,8 @@
 require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
+const fs = require('fs').promises;
 const path = require('path');
-const fs = require('fs');
 const { Pool } = require('pg');
 const axios = require('axios');
 const cors = require('cors');
@@ -38,9 +38,6 @@ app.use(express.json());
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
@@ -74,7 +71,7 @@ class PKCSVParser {
 
   async parseCSVFile(filePath) {
     try {
-      const fileBuffer = fs.readFileSync(filePath);
+      const fileBuffer = await fs.readFile(filePath);
       const csvText = new TextDecoder(this.encoding).decode(fileBuffer);
 
       if (this.debugMode) {
@@ -246,7 +243,7 @@ app.get('/files', (req, res) => {
 });
 
 // Main upload endpoint
-app.post('/upload', upload.single('csvFile'), async (req, res) => {
+app.post('/upload', upload.single('csvFile'), async (req, res, next) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No file uploaded' });
   }
@@ -353,12 +350,16 @@ function deleteOldFiles(uploadDir, maxAgeMs = 24 * 60 * 60 * 1000) {
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Server Error:', error);
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ success: false, error: 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 10MB)' });
-    }
-  }
   res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
+});
+
+// DB connect test
+pool.connect((err, client, release) => {
+    if (err) {
+      return console.error('❌ Error acquiring client', err.stack);
+    }
+    console.log('🐘 Database connected successfully.');
+    client.release();
 });
 
 // Start server
