@@ -369,46 +369,4 @@ app.listen(PORT, () => {
 
 module.exports = app;
 
-// Client-side JavaScript (public/script.js)
-document.getElementById('uploadForm').addEventListener('submit', async function (e) {
-  e.preventDefault();
-  const formData = new FormData(this);
-  const resultSection = document.getElementById('resultSection');
-  resultSection.style.display = 'none';
 
-  try {
-    const response = await fetch('/upload', {
-      method: 'POST',
-      body: formData
-    });
-    const result = await response.json();
-    if (result.success) {
-      loadHistory(); // เพิ่มบรรทัดนี้
-      resultSection.style.display = 'block';
-    } else {
-      resultSection.innerHTML = 'Error: ' + result.error;
-      resultSection.style.display = 'block';
-    }
-  } catch (error) {
-    resultSection.innerHTML = 'Error: ' + error.message;
-    resultSection.style.display = 'block';
-  }
-});
-
-async function loadHistory() {
-  const response = await fetch('/files');
-  const files = await response.json();
-  const historyTable = document.getElementById('historyTable');
-  historyTable.innerHTML = '';
-
-  files.forEach(file => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${file.fileName}</td>
-      <td>${(file.size / 1024).toFixed(2)} KB</td>
-      <td>${new Date(file.createdAt).toLocaleString('th-TH')}</td>
-      <td>${new Date(file.updatedAt).toLocaleString('th-TH')}</td>
-    `;
-    historyTable.appendChild(row);
-  });
-}
