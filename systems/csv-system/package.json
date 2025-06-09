@@ -13,7 +13,7 @@
     "pm2:delete": "pm2 delete pk-crm-csv",
     "pm2:logs": "pm2 logs pk-crm-csv",
     "test": "echo \"No tests specified\" && exit 0",
-    "health": "curl -f http://localhost:3004/health || exit 1",
+    "health": "curl -f http://localhost:3005/health || exit 1",
     "setup": "npm install && mkdir -p uploads logs public",
     "clean": "rm -rf uploads/* logs/*"
   },
@@ -51,7 +51,7 @@
     "url": "https://github.com/PK202161/pk-crm-system.git"
   },
   "config": {
-    "port": 3004,
+    "port": 3005,
     "upload_dir": "./uploads",
     "log_dir": "./logs"
   },

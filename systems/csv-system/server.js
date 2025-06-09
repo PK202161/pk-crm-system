@@ -1,5 +1,6 @@
 // PK CRM - Enhanced Server.js for CSV Processing v2.1
 // วางไฟล์นี้ที่: ~/pk-crm/systems/csv-system/server.js
+
 require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
@@ -9,77 +10,39 @@ const path = require('path');
 const { Pool } = require('pg');
 const axios = require('axios');
 const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 
 const app = express();
-const PORT = process.env.PORT || 3004;
+const PORT = process.env.PORT || 3005;
 
-// Enhanced Rate Limiting
-const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // limit each IP to 50 requests per windowMs
-  message: { success: false, error: 'Too many upload attempts, please try again later.' }
-});
-
-// Database connection with retry logic
+// Database connection
 const pool = new Pool({
   user: process.env.DB_USER || 'pkt_upload',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'pk_crm_db',
   password: process.env.DB_PASSWORD || 'upload123',
   port: process.env.DB_PORT || 5434,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
 });
 
 // N8N Webhook URL
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://n8npkapp.pktechnic.com/webhook-test/uploadCsv';
 
-// Enhanced Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-}));
-app.use(compression());
+// Middleware
 app.use(cors());
-app.use(morgan('combined'));
 app.use(express.static('public'));
 app.use(express.json());
 
-// Apply rate limiting to upload endpoints
-app.use('/upload', uploadLimiter);
-
-// Enhanced logging setup
-const logDir = './logs';
-if (!fsSync.existsSync(logDir)) {
-  fsSync.mkdirSync(logDir);
-}
-
-// Custom logger function
-function log(level, message, data = null) {
+// Enhanced logging
+const logInfo = (message, data = null) => {
   const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${level}: ${message}`;
-  
-  console.log(logMessage, data ? JSON.stringify(data, null, 2) : '');
-  
-  // Write to file
-  const logFile = path.join(logDir, `${new Date().toISOString().split('T')[0]}.log`);
-  const logEntry = `${logMessage}${data ? ' ' + JSON.stringify(data) : ''}\n`;
-  fsSync.appendFileSync(logFile, logEntry);
-}
+  console.log(`[${timestamp}] INFO: ${message}`, data ? JSON.stringify(data, null, 2) : '');
+};
 
-// Enhanced Multer configuration
+const logError = (message, error = null) => {
+  const timestamp = new Date().toISOString();
+  console.error(`[${timestamp}] ERROR: ${message}`, error ? error.message : '');
+};
+
+// Multer configuration for CSV files
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
@@ -91,25 +54,22 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000000);
-    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    cb(null, `csv-${timestamp}-${random}-${sanitizedName}`);
+    cb(null, `csv-${timestamp}-${random}.csv`);
   }
 });
 
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/csv' ||
-        file.originalname.toLowerCase().endsWith('.csv') ||
-        file.mimetype === 'application/vnd.ms-excel') {
+    if (file.mimetype === 'text/csv' || 
+        file.originalname.toLowerCase().endsWith('.csv')) {
       cb(null, true);
     } else {
       cb(new Error('กรุณาอัปโหลดไฟล์ CSV เท่านั้น'));
     }
   },
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024,
-    files: 1
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024
   }
 });
 
@@ -118,40 +78,21 @@ class PKCSVParser {
   constructor() {
     this.debugMode = process.env.DEBUG_MODE === 'true';
     this.encoding = process.env.CSV_ENCODING || 'windows-874';
-    this.supportedEncodings = ['windows-874', 'utf-8', 'iso-8859-1'];
   }
 
   async parseCSVFile(filePath) {
     try {
-      log('INFO', `Starting CSV parsing for file: ${filePath}`);
+      logInfo(`Starting CSV parsing for file: ${filePath}`);
       
       const fileBuffer = await fs.readFile(filePath);
-      let csvText = null;
-      let usedEncoding = this.encoding;
-
-      // Try multiple encodings
-      for (const encoding of this.supportedEncodings) {
-        try {
-          csvText = new TextDecoder(encoding).decode(fileBuffer);
-          if (csvText && csvText.length > 0 && !csvText.includes('�')) {
-            usedEncoding = encoding;
-            break;
-          }
-        } catch (e) {
-          continue;
-        }
-      }
-
-      if (!csvText) {
-        throw new Error('ไม่สามารถอ่านไฟล์ CSV ได้ด้วย encoding ที่รองรับ');
-      }
+      const csvText = new TextDecoder(this.encoding).decode(fileBuffer);
 
       if (this.debugMode) {
-        log('DEBUG', 'CSV Parsing Debug Info', {
+        logInfo('CSV Parsing Debug', {
           filePath,
           contentLength: csvText.length,
-          usedEncoding,
-          firstLines: csvText.split('\n').slice(0, 5)
+          encoding: this.encoding,
+          firstLines: csvText.split('\n').slice(0, 3)
         });
       }
 
@@ -164,26 +105,25 @@ class PKCSVParser {
       } else if (documentType === 'sales_order') {
         result = this.parseSalesOrder(lines);
       } else {
-        throw new Error('ไม่สามารถระบุประเภทเอกสารได้ (ไม่พบใบเสนอราคาหรือใบสั่งขาย)');
+        throw new Error('ไม่สามารถระบุประเภทเอกสารได้');
       }
 
-      const parseResult = {
+      logInfo('CSV parsing completed successfully', { documentType });
+      
+      return {
         success: true,
         documentType,
         data: result,
         metadata: {
-          encoding: usedEncoding,
+          encoding: this.encoding,
           linesProcessed: lines.length,
           parsedAt: new Date().toISOString(),
           version: 'pk-csv-parser-v2.1'
         }
       };
 
-      log('INFO', 'CSV parsing completed successfully', { documentType, linesProcessed: lines.length });
-      return parseResult;
-
     } catch (error) {
-      log('ERROR', 'CSV Parsing Failed', { error: error.message, filePath });
+      logError('CSV Parsing Failed', error);
       return {
         success: false,
         error: error.message,
@@ -201,16 +141,12 @@ class PKCSVParser {
   detectDocumentType(lines) {
     const text = lines.join(' ').toLowerCase();
     
-    // Enhanced detection patterns
-    const salesOrderPatterns = ['ใบสั่งขาย', 'sales order', 'so6', 'so_'];
-    const quotationPatterns = ['ใบเสนอราคา', 'quotation', 'qt6', 'qt_'];
-    
-    for (const pattern of salesOrderPatterns) {
-      if (text.includes(pattern)) return 'sales_order';
+    if (text.includes('ใบสั่งขาย') || text.includes('sales order') || text.includes('so6')) {
+      return 'sales_order';
     }
     
-    for (const pattern of quotationPatterns) {
-      if (text.includes(pattern)) return 'quotation';
+    if (text.includes('ใบเสนอราคา') || text.includes('quotation') || text.includes('qt6')) {
+      return 'quotation';
     }
     
     return 'unknown';
@@ -222,16 +158,13 @@ class PKCSVParser {
       customer_info: {},
       sales_info: {},
       line_items: [],
-      financial_summary: {},
-      additional_info: {}
+      financial_summary: {}
     };
 
-    let inItemsSection = false;
-    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      // Document number extraction
+      // Sales Order number
       if (line.includes('เลขที่ใบสั่งขาย') || line.includes('SO')) {
         const soMatch = line.match(/SO(\d+)/i);
         if (soMatch) result.document_info.sales_order_number = 'SO' + soMatch[1];
@@ -251,10 +184,9 @@ class PKCSVParser {
       if (line.includes('วันที่') && line.match(/\d{2}\/\d{2}\/\d{2}/)) {
         const dates = line.match(/\d{2}\/\d{2}\/\d{2}/g);
         if (dates) {
-          if (line.includes('ส่งของ')) {
-            result.document_info.delivery_date = dates[0];
-          } else {
-            result.document_info.date = dates[0];
+          result.document_info.date = dates[0];
+          if (line.includes('ส่งของ') && dates[1]) {
+            result.document_info.delivery_date = dates[1];
           }
         }
       }
@@ -271,16 +203,10 @@ class PKCSVParser {
       // PO Reference
       if (line.includes('PO') || line.includes('ใบสั่งซื้อ')) {
         const poMatch = line.match(/PO[:\s]*([A-Z0-9]+)/i);
-        if (poMatch) result.additional_info.po_reference = poMatch[1];
-      }
-      
-      // Territory/Zone information
-      if (line.includes('เขต') || line.includes('zone')) {
-        result.sales_info.territory = line.trim();
+        if (poMatch) result.sales_info.po_reference = poMatch[1];
       }
       
       this.extractFinancialData(line, result.financial_summary);
-      this.extractLineItems(line, result.line_items, inItemsSection);
     }
     
     return result;
@@ -337,24 +263,25 @@ class PKCSVParser {
       }
       
       this.extractFinancialData(line, result.financial_summary);
-      this.extractLineItems(line, result.line_items);
     }
     
     return result;
   }
 
   extractFinancialData(line, summary) {
-    // Enhanced financial data extraction
+    // Subtotal
     if (line.includes('รวมเป็นเงิน') && !line.includes('หมายเหตุ')) {
       const amount = this.extractAmount(line);
       if (amount) summary.subtotal = amount;
     }
     
+    // Grand total
     if (line.includes('รวมทั้งสิ้น')) {
       const amount = this.extractAmount(line);
       if (amount) summary.grand_total = amount;
     }
     
+    // VAT
     if (line.includes('ภาษีมูลค่าเพิ่ม') || line.includes('VAT')) {
       const vatMatch = line.match(/(\d+\.?\d*)%.*?([\d,]+\.?\d*)/);
       if (vatMatch) {
@@ -363,27 +290,10 @@ class PKCSVParser {
       }
     }
     
-    // Profit margin extraction (for sales orders)
+    // Profit margin (for sales orders)
     if (line.includes('กำไร') && line.includes('%')) {
       const profitMatch = line.match(/([\d.]+)%/);
       if (profitMatch) summary.profit_margin = parseFloat(profitMatch[1]);
-    }
-  }
-
-  extractLineItems(line, items) {
-    // Enhanced line item extraction
-    // Look for patterns like: quantity × unit_price = amount
-    const itemPattern = /(\d+\.?\d*)\s*[×x]\s*([\d,]+\.?\d*)\s*=\s*([\d,]+\.?\d*)/;
-    const match = line.match(itemPattern);
-    
-    if (match) {
-      items.push({
-        line_number: items.length + 1,
-        quantity: parseFloat(match[1]),
-        unit_price: parseFloat(match[2].replace(/,/g, '')),
-        amount: parseFloat(match[3].replace(/,/g, '')),
-        description: line.replace(itemPattern, '').trim()
-      });
     }
   }
 
@@ -393,7 +303,7 @@ class PKCSVParser {
   }
 }
 
-// Enhanced Routes
+// Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -410,8 +320,7 @@ app.get('/health', async (req, res) => {
       version: '2.1',
       port: PORT,
       database: dbResult.rows[0] ? 'Connected' : 'Disconnected',
-      uptime: process.uptime(),
-      memory: process.memoryUsage()
+      uptime: process.uptime()
     });
   } catch (error) {
     res.status(500).json({
@@ -419,45 +328,6 @@ app.get('/health', async (req, res) => {
       error: error.message,
       timestamp: new Date().toISOString()
     });
-  }
-});
-
-app.get('/system-status', async (req, res) => {
-  try {
-    const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    let files = [];
-    
-    if (fsSync.existsSync(uploadDir)) {
-      const fileNames = await fs.readdir(uploadDir);
-      files = await Promise.all(fileNames.map(async (file) => {
-        const filePath = path.join(uploadDir, file);
-        const stats = await fs.stat(filePath);
-        return {
-          fileName: file,
-          size: stats.size,
-          createdAt: stats.birthtime,
-          updatedAt: stats.mtime
-        };
-      }));
-    }
-
-    res.json({
-      systemInfo: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        arch: process.arch,
-        uptime: process.uptime(),
-        memory: process.memoryUsage()
-      },
-      fileStats: {
-        totalFiles: files.length,
-        totalSize: files.reduce((sum, f) => sum + f.size, 0),
-        oldestFile: files.length > 0 ? Math.min(...files.map(f => new Date(f.createdAt))) : null
-      },
-      recentFiles: files.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5)
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 
@@ -486,12 +356,101 @@ app.get('/files', async (req, res) => {
     
     res.json(files);
   } catch (error) {
-    log('ERROR', 'Failed to list files', { error: error.message });
+    logError('Failed to list files', error);
     res.status(500).json({ error: 'ไม่สามารถดึงรายการไฟล์ได้' });
   }
 });
 
-// Enhanced upload endpoint
+// Cleanup old files endpoint
+app.post('/cleanup', async (req, res) => {
+  try {
+    logInfo('Manual cleanup requested');
+    
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+    const logsDir = './logs';
+    let totalCleaned = 0;
+    let message = '';
+    
+    // Clean upload files older than 1 hour (for demo purposes)
+    if (fsSync.existsSync(uploadDir)) {
+      const uploadFiles = fsSync.readdirSync(uploadDir);
+      const now = Date.now();
+      let uploadCleaned = 0;
+      
+      uploadFiles.forEach(file => {
+        const filePath = path.join(uploadDir, file);
+        try {
+          const stats = fsSync.statSync(filePath);
+          // Delete files older than 1 hour (3600000 ms)
+          if (now - stats.mtimeMs > 3600000) {
+            fsSync.unlinkSync(filePath);
+            uploadCleaned++;
+          }
+        } catch (e) {
+          // ignore error for individual files
+        }
+      });
+      
+      totalCleaned += uploadCleaned;
+      if (uploadCleaned > 0) {
+        message += `ลบไฟล์อัปโหลดเก่า ${uploadCleaned} ไฟล์ `;
+      }
+    }
+    
+    // Clean log files older than 7 days
+    if (fsSync.existsSync(logsDir)) {
+      const logFiles = fsSync.readdirSync(logsDir);
+      const now = Date.now();
+      let logCleaned = 0;
+      
+      logFiles.forEach(file => {
+        if (file.endsWith('.log')) {
+          const filePath = path.join(logsDir, file);
+          try {
+            const stats = fsSync.statSync(filePath);
+            // Delete log files older than 7 days
+            if (now - stats.mtimeMs > 7 * 24 * 60 * 60 * 1000) {
+              fsSync.unlinkSync(filePath);
+              logCleaned++;
+            }
+          } catch (e) {
+            // ignore error for individual files
+          }
+        }
+      });
+      
+      totalCleaned += logCleaned;
+      if (logCleaned > 0) {
+        message += `ลบไฟล์ log เก่า ${logCleaned} ไฟล์ `;
+      }
+    }
+    
+    if (totalCleaned === 0) {
+      message = 'ไม่มีไฟล์เก่าให้ลบ';
+    } else {
+      message = message.trim();
+    }
+    
+    logInfo('Manual cleanup completed', { totalCleaned, message });
+    
+    res.json({
+      success: true,
+      message: message,
+      filesDeleted: totalCleaned,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    logError('Manual cleanup failed', error);
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Main upload endpoint
 app.post('/upload', upload.single('csvFile'), async (req, res) => {
   const startTime = Date.now();
   
@@ -508,7 +467,7 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
   deleteOldFiles(uploadDir);
 
   try {
-    log('INFO', `Processing CSV upload: ${req.file.originalname}`, {
+    logInfo(`Processing CSV upload: ${req.file.originalname}`, {
       fileName: req.file.filename,
       size: req.file.size,
       mimetype: req.file.mimetype
@@ -520,7 +479,7 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
     if (!parseResult.success) {
       // Delete failed file
       await fs.unlink(req.file.path);
-      log('ERROR', 'CSV parsing failed', { error: parseResult.error, fileName: req.file.originalname });
+      logError('CSV parsing failed', { error: parseResult.error });
       
       return res.status(400).json({
         success: false,
@@ -529,22 +488,14 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
       });
     }
 
-    log('INFO', 'CSV parsed successfully', { 
+    logInfo('CSV parsed successfully', { 
       documentType: parseResult.documentType,
       linesProcessed: parseResult.metadata.linesProcessed 
     });
 
     // Send to N8N webhook
     const webhookResult = await sendToN8N(parseResult, req.file);
-    log('INFO', 'N8N webhook completed', { success: webhookResult.success });
-
-    // Save to database (if connected)
-    let dbSaveResult = null;
-    try {
-      dbSaveResult = await saveToDatabase(parseResult, req.file);
-    } catch (dbError) {
-      log('WARN', 'Database save failed', { error: dbError.message });
-    }
+    logInfo('N8N webhook completed', { success: webhookResult.success });
 
     const processingTime = Date.now() - startTime;
 
@@ -560,14 +511,13 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
       },
       parsing: parseResult,
       webhook: webhookResult,
-      database: dbSaveResult,
       summary: generateSummary(parseResult.data),
       timestamp: new Date().toISOString()
     };
 
     // Delete processed file
     await fs.unlink(req.file.path);
-    log('INFO', 'File processed and cleaned up', { fileName: req.file.originalname, processingTime });
+    logInfo('File processed and cleaned up', { fileName: req.file.originalname, processingTime });
 
     res.json(response);
 
@@ -577,15 +527,11 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
       try {
         await fs.unlink(req.file.path);
       } catch (unlinkError) {
-        log('ERROR', 'Failed to delete file after error', { error: unlinkError.message });
+        logError('Failed to delete file after error', unlinkError);
       }
     }
 
-    log('ERROR', 'Upload processing failed', { 
-      error: error.message, 
-      fileName: req.file?.originalname,
-      stack: error.stack 
-    });
+    logError('Upload processing failed', error);
 
     res.status(500).json({
       success: false,
@@ -595,7 +541,7 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
   }
 });
 
-// Enhanced N8N webhook function
+// Send to N8N webhook
 async function sendToN8N(parseResult, fileInfo) {
   try {
     const payload = {
@@ -621,49 +567,15 @@ async function sendToN8N(parseResult, fileInfo) {
     return { 
       success: true, 
       statusCode: response.status, 
-      webhookUrl: N8N_WEBHOOK_URL,
-      responseTime: response.headers['response-time'] || 'unknown'
+      webhookUrl: N8N_WEBHOOK_URL 
     };
   } catch (error) {
-    log('ERROR', 'N8N webhook failed', { error: error.message, url: N8N_WEBHOOK_URL });
+    logError('N8N webhook failed', error);
     return { 
       success: false, 
       error: error.message, 
       webhookUrl: N8N_WEBHOOK_URL 
     };
-  }
-}
-
-// Enhanced database save function
-async function saveToDatabase(parseResult, fileInfo) {
-  try {
-    const query = `
-      INSERT INTO file_attachments (
-        entity_type, entity_id, file_name, original_name, 
-        file_size, file_path, document_type, processed_data, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-      RETURNING attachment_id
-    `;
-    
-    const values = [
-      'csv_upload',
-      null,
-      fileInfo.filename,
-      fileInfo.originalname,
-      fileInfo.size,
-      fileInfo.path,
-      parseResult.documentType,
-      JSON.stringify(parseResult.data)
-    ];
-
-    const result = await pool.query(query, values);
-    return { 
-      success: true, 
-      attachmentId: result.rows[0].attachment_id 
-    };
-  } catch (error) {
-    log('ERROR', 'Database save failed', { error: error.message });
-    throw error;
   }
 }
 
@@ -683,8 +595,8 @@ function generateSummary(data) {
   };
 }
 
-// Enhanced file cleanup with configurable retention
-function deleteOldFiles(uploadDir, maxAgeMs = parseInt(process.env.FILE_RETENTION_MS) || 24 * 60 * 60 * 1000) {
+// Clean old files
+function deleteOldFiles(uploadDir, maxAgeMs = 24 * 60 * 60 * 1000) {
   try {
     if (!fsSync.existsSync(uploadDir)) return;
     
@@ -699,30 +611,24 @@ function deleteOldFiles(uploadDir, maxAgeMs = parseInt(process.env.FILE_RETENTIO
         if (now - stats.mtimeMs > maxAgeMs) {
           fsSync.unlinkSync(filePath);
           deletedCount++;
-          log('INFO', `Deleted old file: ${file}`);
+          logInfo(`Deleted old file: ${file}`);
         }
       } catch (e) {
-        log('WARN', `Failed to process file: ${file}`, { error: e.message });
+        // ignore error
       }
     });
     
     if (deletedCount > 0) {
-      log('INFO', `Cleanup completed: ${deletedCount} files deleted`);
+      logInfo(`Cleanup completed: ${deletedCount} files deleted`);
     }
   } catch (error) {
-    log('ERROR', 'File cleanup failed', { error: error.message });
+    logError('File cleanup failed', error);
   }
 }
 
-// Enhanced error handling middleware
+// Error handling middleware
 app.use((error, req, res, next) => {
-  log('ERROR', 'Unhandled server error', { 
-    error: error.message, 
-    stack: error.stack,
-    url: req.url,
-    method: req.method 
-  });
-  
+  logError('Server Error', error);
   res.status(500).json({ 
     success: false, 
     error: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์',
@@ -730,51 +636,21 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Enhanced database connection with retry
-async function connectDatabase() {
-  let retries = 3;
-  while (retries > 0) {
-    try {
-      const client = await pool.connect();
-      await client.query('SELECT NOW()');
-      client.release();
-      log('INFO', '🐘 Database connected successfully');
-      return;
-    } catch (error) {
-      retries--;
-      log('WARN', `Database connection failed, retries left: ${retries}`, { error: error.message });
-      if (retries === 0) {
-        log('ERROR', '❌ Database connection failed permanently');
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
+// Database connection test
+pool.connect((err, client, release) => {
+  if (err) {
+    logError('Error acquiring database client', err);
+  } else {
+    logInfo('🐘 Database connected successfully');
+    client.release();
   }
-}
-
-// Graceful shutdown handling
-process.on('SIGTERM', async () => {
-  log('INFO', 'SIGTERM received, shutting down gracefully');
-  await pool.end();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  log('INFO', 'SIGINT received, shutting down gracefully');
-  await pool.end();
-  process.exit(0);
 });
 
 // Start server
-connectDatabase().then(() => {
-  app.listen(PORT, () => {
-    log('INFO', `🚀 PK CRM CSV Processor v2.1 running on port ${PORT}`);
-    log('INFO', `📊 Dashboard: http://localhost:${PORT}`);
-    log('INFO', `🔗 N8N Webhook: ${N8N_WEBHOOK_URL}`);
-  });
-}).catch(error => {
-  log('ERROR', 'Failed to start server', { error: error.message });
-  process.exit(1);
+app.listen(PORT, () => {
+  logInfo(`🚀 PK CRM CSV Processor v2.1 running on port ${PORT}`);
+  logInfo(`📊 Dashboard: http://localhost:${PORT}`);
+  logInfo(`🔗 N8N Webhook: ${N8N_WEBHOOK_URL}`);
 });
 
 module.exports = app;
