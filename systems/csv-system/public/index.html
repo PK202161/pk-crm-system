@@ -228,7 +228,7 @@
                 <label for="csvFile" class="upload-btn" style="cursor:pointer;">
                     <i class="fas fa-folder-open"></i> เลือกไฟล์
                 </label>
-                <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileSelect(event)">
+                <input type="file" id="csvFile" name="csvFile" class="file-input" accept=".csv">
             </div>
             
             <div id="message"></div>
@@ -416,5 +416,6 @@
         // เรียกเมื่อโหลดหน้า
         window.onload = loadHistory;
     </script>
+    <script src="script.js"></script>
 </body>
 </html>
