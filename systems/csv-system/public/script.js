@@ -1,4 +1,8 @@
-document.getElementById('csvFile').addEventListener('change', handleFileSelect);
+window.onload = function() {
+    loadHistory();
+    document.getElementById('csvFile').addEventListener('change', handleFileSelect);
+};
+
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (file) {
@@ -160,8 +164,3 @@ async function loadHistory() {
     }
 }
 
-// เรียกเมื่อโหลดหน้า
-window.onload = function() {
-    loadHistory();
-    document.getElementById('csvFile').addEventListener('change', handleFileSelect);
-};
