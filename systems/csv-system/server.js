@@ -229,6 +229,21 @@ app.get('/health', (req, res) => {
     port: PORT
   });
 });
+app.get('/files', (req, res) => {
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  if (!fs.existsSync(uploadDir)) return res.json([]);
+  const files = fs.readdirSync(uploadDir).map(file => {
+    const filePath = path.join(uploadDir, file);
+    const stats = fs.statSync(filePath);
+    return {
+      fileName: file,
+      size: stats.size,
+      createdAt: stats.birthtime,
+      updatedAt: stats.mtime
+    };
+  });
+  res.json(files);
+});
 
 // Main upload endpoint
 app.post('/upload', upload.single('csvFile'), async (req, res) => {

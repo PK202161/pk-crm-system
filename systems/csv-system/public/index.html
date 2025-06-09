@@ -149,6 +149,57 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .history-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .history-item strong {
+            color: #333;
+        }
+
+        .no-history {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            border-radius: 10px;
+            background: #f1f1f1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f0f2ff;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f1f1f1;
+        }
     </style>
 </head>
 <body>
@@ -190,6 +241,14 @@
             </div>
             <div id="results"></div>
         </div>
+
+        <!-- เพิ่มในส่วนที่ต้องการแสดงประวัติ -->
+        <div class="history-section" id="historySection" style="margin-top:30px;">
+            <div class="section-title">
+                <i class="fas fa-history"></i> ประวัติการอัปโหลดไฟล์
+            </div>
+            <div id="historyList"></div>
+        </div>
     </div>
 
     <script>
@@ -207,6 +266,7 @@
             const messageDiv = document.getElementById('message');
             const resultSection = document.getElementById('resultSection');
             const resultsDiv = document.getElementById('results');
+            const historyList = document.getElementById('historyList');
 
             // Show loading
             messageDiv.innerHTML = `
@@ -223,6 +283,7 @@
                 });
 
                 const result = await response.json();
+                console.log(result); // เพิ่มบรรทัดนี้
                 
                 if (result.success) {
                     messageDiv.innerHTML = `
@@ -256,6 +317,9 @@
                         </div>
                     `;
                     
+                    // Update history
+                    updateHistorySection(result.file.originalName, result.summary.documentNumber, result.summary.customerName, result.summary.grandTotal);
+
                     resultSection.style.display = 'block';
                 } else {
                     messageDiv.innerHTML = `
@@ -291,6 +355,66 @@
                 currency: 'THB'
             }).format(amount);
         }
+
+        function updateHistorySection(fileName, documentNumber, customerName, grandTotal) {
+            const historyList = document.getElementById('historyList');
+
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.innerHTML = `
+                <strong>ไฟล์:</strong> ${fileName} <br>
+                <strong>เลขที่เอกสาร:</strong> ${documentNumber || 'ไม่ระบุ'} <br>
+                <strong>ลูกค้า:</strong> ${customerName || 'ไม่ระบุ'} <br>
+                <strong>ยอดรวม:</strong> ${formatCurrency(grandTotal)} <br>
+                <small style="color:#999;">${new Date().toLocaleString('th-TH')}</small>
+            `;
+
+            historyList.prepend(historyItem);
+
+            // Limit history to last 5 items
+            const historyItems = historyList.getElementsByClassName('history-item');
+            if (historyItems.length > 5) {
+                historyList.removeChild(historyItems[historyItems.length - 1]);
+            }
+        }
+
+        async function loadHistory() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = '<div>กำลังโหลด...</div>';
+            try {
+                const res = await fetch('/files');
+                const files = await res.json();
+                if (!files.length) {
+                    historyList.innerHTML = '<div>ยังไม่มีประวัติการอัปโหลด</div>';
+                    return;
+                }
+                historyList.innerHTML = `
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f0f2ff;">
+                                <th style="padding:8px;">ชื่อไฟล์</th>
+                                <th style="padding:8px;">ขนาด</th>
+                                <th style="padding:8px;">วันที่อัปโหลด</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${files.map(f => `
+                                <tr>
+                                    <td style="padding:8px;">${f.fileName}</td>
+                                    <td style="padding:8px;">${(f.size/1024).toFixed(2)} KB</td>
+                                    <td style="padding:8px;">${new Date(f.createdAt).toLocaleString('th-TH')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                historyList.innerHTML = '<div style="color:red;">เกิดข้อผิดพลาดในการโหลดประวัติ</div>';
+            }
+        }
+
+        // เรียกเมื่อโหลดหน้า
+        window.onload = loadHistory;
     </script>
 </body>
 </html>
