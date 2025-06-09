@@ -1,4 +1,4 @@
-// PK CRM CSV Upload System - Enhanced JavaScript v2.1
+// PK CRM CSV Upload System - Complete JavaScript v2.1
 // วางไฟล์นี้ที่: ~/pk-crm/systems/csv-system/public/script.js
 
 class PKCRMUploader {
@@ -20,6 +20,11 @@ class PKCRMUploader {
     bindEvents() {
         const fileInput = document.getElementById('csvFile');
         const uploadArea = document.getElementById('uploadArea');
+
+        if (!fileInput || !uploadArea) {
+            console.warn('Upload elements not found');
+            return;
+        }
 
         // Click to select file
         uploadArea.addEventListener('click', (e) => {
@@ -58,25 +63,31 @@ class PKCRMUploader {
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
         const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 
-        clearHistoryBtn.addEventListener('click', () => {
-            confirmModal.classList.add('show');
-        });
+        if (clearHistoryBtn && confirmModal) {
+            clearHistoryBtn.addEventListener('click', () => {
+                confirmModal.classList.add('show');
+            });
 
-        cancelDeleteBtn.addEventListener('click', () => {
-            confirmModal.classList.remove('show');
-        });
-
-        confirmDeleteBtn.addEventListener('click', () => {
-            this.clearOldFiles();
-            confirmModal.classList.remove('show');
-        });
-
-        // Close modal on outside click
-        confirmModal.addEventListener('click', (e) => {
-            if (e.target === confirmModal) {
-                confirmModal.classList.remove('show');
+            if (cancelDeleteBtn) {
+                cancelDeleteBtn.addEventListener('click', () => {
+                    confirmModal.classList.remove('show');
+                });
             }
-        });
+
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.addEventListener('click', () => {
+                    this.clearOldFiles();
+                    confirmModal.classList.remove('show');
+                });
+            }
+
+            // Close modal on outside click
+            confirmModal.addEventListener('click', (e) => {
+                if (e.target === confirmModal) {
+                    confirmModal.classList.remove('show');
+                }
+            });
+        }
     }
 
     preventDefaults(e) {
@@ -187,13 +198,17 @@ class PKCRMUploader {
         const overlay = document.getElementById('processingOverlay');
         const processingText = document.getElementById('processingText');
         
-        processingText.textContent = `กำลังประมวลผล: ${fileName}`;
-        overlay.classList.add('show');
+        if (overlay && processingText) {
+            processingText.textContent = `กำลังประมวลผล: ${fileName}`;
+            overlay.classList.add('show');
+        }
     }
 
     hideProcessingState() {
         const overlay = document.getElementById('processingOverlay');
-        overlay.classList.remove('show');
+        if (overlay) {
+            overlay.classList.remove('show');
+        }
     }
 
     handleUploadSuccess(result) {
@@ -216,6 +231,8 @@ class PKCRMUploader {
 
     showMessage(message, type = 'info') {
         const messageBox = document.getElementById('messageBox');
+        if (!messageBox) return;
+
         const alertClass = `alert-${type}`;
         const iconClass = type === 'success' ? 'fa-check-circle' : 
                          type === 'error' ? 'fa-exclamation-triangle' : 
@@ -238,13 +255,15 @@ class PKCRMUploader {
 
     displayResults(result) {
         const container = document.getElementById('resultsContainer');
-        const summary = result.summary;
+        if (!container) return;
+
+        const summary = result.summary || {};
 
         container.innerHTML = `
             <div class="result-card">
                 <div class="result-header">
                     <i class="fas fa-file-alt" style="color: var(--primary-color); font-size: 1.5rem;"></i>
-                    <h3>${result.file.originalName}</h3>
+                    <h3>${result.file?.originalName || 'ไฟล์ที่อัปโหลด'}</h3>
                     <span style="margin-left: auto; background: var(--success-color); color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">
                         <i class="fas fa-check"></i> สำเร็จ
                     </span>
@@ -306,7 +325,7 @@ class PKCRMUploader {
                         <i class="fas fa-cog"></i> รายละเอียดการประมวลผล
                     </h4>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; font-size: 0.9rem;">
-                        <div><strong>File Size:</strong> ${this.formatFileSize(result.file.size)}</div>
+                        <div><strong>File Size:</strong> ${this.formatFileSize(result.file?.size || 0)}</div>
                         <div><strong>Encoding:</strong> ${result.parsing?.metadata?.encoding || 'auto'}</div>
                         <div>
                             <strong>N8N Webhook:</strong> 
@@ -323,17 +342,22 @@ class PKCRMUploader {
 
     showResultSection() {
         const section = document.getElementById('resultSection');
-        section.style.display = 'block';
-        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (section) {
+            section.style.display = 'block';
+            section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 
     hideResultSection() {
         const section = document.getElementById('resultSection');
-        section.style.display = 'none';
+        if (section) {
+            section.style.display = 'none';
+        }
     }
 
     async loadHistory() {
         const container = document.getElementById('historyContainer');
+        if (!container) return;
         
         try {
             const response = await fetch('/files');
@@ -386,6 +410,7 @@ class PKCRMUploader {
 
     async clearOldFiles() {
         const clearBtn = document.getElementById('clearHistoryBtn');
+        if (!clearBtn) return;
         
         try {
             clearBtn.disabled = true;
@@ -492,5 +517,13 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.pkCrmUploader = new PKCRMUploader();
+    console.log('DOM loaded, initializing PK CRM Uploader...');
+    try {
+        window.pkCrmUploader = new PKCRMUploader();
+    } catch (error) {
+        console.error('Failed to initialize PK CRM Uploader:', error);
+    }
 });
+
+// For debugging
+console.log('PK CRM CSV Upload System script loaded successfully');
