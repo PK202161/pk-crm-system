@@ -174,11 +174,10 @@
                 <div style="font-size: 0.9rem; color: #999; margin-bottom: 15px;">
                     รองรับไฟล์ CSV ขนาดไม่เกิน 10MB
                 </div>
-                <button class="upload-btn">
+                <button class="upload-btn" type="button" onclick="document.getElementById('csvFile').click(); event.stopPropagation();">
                     <i class="fas fa-folder-open"></i> เลือกไฟล์
                 </button>
             </div>
-
             <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="handleFileSelect(event)">
             
             <div id="message"></div>
