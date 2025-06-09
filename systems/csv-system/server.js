@@ -28,7 +28,20 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://n8npkapp.pktechn
 
 // Middleware
 app.use(cors());
-app.use(express.static('public'));
+
+// Static files with proper MIME types
+app.use(express.static('public', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
+
 app.use(express.json());
 
 // Enhanced logging
@@ -306,6 +319,33 @@ class PKCSVParser {
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Debug route for checking static files
+app.get('/debug/files', (req, res) => {
+  try {
+    const publicDir = path.join(__dirname, 'public');
+    const files = fsSync.readdirSync(publicDir);
+    
+    const fileInfo = files.map(file => {
+      const filePath = path.join(publicDir, file);
+      const stats = fsSync.statSync(filePath);
+      return {
+        name: file,
+        size: stats.size,
+        exists: fsSync.existsSync(filePath)
+      };
+    });
+    
+    res.json({
+      publicDirectory: publicDir,
+      files: fileInfo,
+      scriptJsExists: fsSync.existsSync(path.join(publicDir, 'script.js')),
+      indexHtmlExists: fsSync.existsSync(path.join(publicDir, 'index.html'))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/health', async (req, res) => {
