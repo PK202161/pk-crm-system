@@ -247,17 +247,14 @@ app.get('/files', (req, res) => {
 
 // Main upload endpoint
 app.post('/upload', upload.single('csvFile'), async (req, res) => {
-  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No file uploaded' });
+  }
   // ลบไฟล์เก่าก่อนประมวลผล
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
   deleteOldFiles(uploadDir);
 
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'กรุณาเลือกไฟล์ CSV'
-      });
-    }
     console.log(`\n=== Processing CSV File: ${req.file.originalname} ===`);
     const parser = new PKCSVParser();
     const parseResult = await parser.parseCSVFile(req.file.path);
@@ -371,3 +368,44 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
+// Client-side JavaScript (public/script.js)
+document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  const resultSection = document.getElementById('resultSection');
+  resultSection.style.display = 'none';
+
+  try {
+    const response = await fetch('/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if (result.success) {
+      loadHistory(); // เพิ่มบรรทัดนี้
+      resultSection.style.display = 'block';
+    } else {
+      resultSection.innerHTML = 'Error: ' + result.error;
+      resultSection.style.display = 'block';
+    }
+  } catch (error) {
+    resultSection.innerHTML = 'Error: ' + error.message;
+    resultSection.style.display = 'block';
+  }
+});
+
+async function loadHistory() {
+  const response = await fetch('/files');
+  const files = await response.json();
+  const historyTable = document.getElementById('historyTable');
+  historyTable.innerHTML = '';
+
+  files.forEach(file => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${file.fileName}</td>
+      <td>${(file.size / 1024).toFixed(2)} KB</td>
+      <td>${new Date(file.createdAt).toLocaleString('th-TH')}</td>
+      <td>${new Date(file.updatedAt).toLocaleString('th-TH')}</td>
+    `;
