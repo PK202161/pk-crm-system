@@ -409,3 +409,6 @@ async function loadHistory() {
       <td>${new Date(file.createdAt).toLocaleString('th-TH')}</td>
       <td>${new Date(file.updatedAt).toLocaleString('th-TH')}</td>
     `;
+    historyTable.appendChild(row);
+  });
+}
