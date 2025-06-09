@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PK CRM - CSV Upload System</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>PK CRM - CSV Upload System v2.1</title>
+    <!-- วางไฟล์นี้ที่: ~/pk-crm/systems/csv-system/public/index.html -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,12 +13,25 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-900: #111827;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             min-height: 100vh;
             padding: 20px;
-            color: #333;
+            color: var(--gray-900);
         }
 
         .container {
@@ -28,68 +42,99 @@
         .header {
             text-align: center;
             color: white;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            margin-bottom: 15px;
+            font-weight: 700;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
         }
 
         .header p {
             font-size: 1.1rem;
-            opacity: 0.9;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
-        .upload-section, .result-section, .history-section {
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        @media (min-width: 1024px) {
+            .main-content {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        .card {
             background: white;
             border-radius: 20px;
-            padding: 40px;
+            padding: 30px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+            border: 1px solid var(--gray-200);
         }
 
         .section-title {
             font-size: 1.5rem;
-            color: #333;
-            margin-bottom: 20px;
+            color: var(--gray-900);
+            margin-bottom: 25px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            font-weight: 600;
         }
 
         .section-title i {
-            color: #667eea;
+            color: var(--primary-color);
+            font-size: 1.3rem;
         }
 
         .upload-area {
-            border: 3px dashed #667eea;
+            border: 3px dashed var(--gray-300);
             border-radius: 15px;
-            padding: 40px;
+            padding: 50px 30px;
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
-            background: #f8f9ff;
+            background: var(--gray-50);
+            position: relative;
         }
 
         .upload-area.active,
         .upload-area:hover {
-            border-color: #764ba2;
+            border-color: var(--primary-color);
             background: #f0f2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success-color);
+            background: #f0fff4;
+            scale: 1.02;
         }
 
         .upload-icon {
-            font-size: 3rem;
-            color: #667eea;
+            font-size: 3.5rem;
+            color: var(--primary-color);
             margin-bottom: 20px;
         }
 
         .upload-text {
-            font-size: 1.1rem;
-            color: #666;
-            margin-bottom: 15px;
-            pointer-events: none; /* ทำให้ text ไม่ขวางการคลิก */
+            font-size: 1.2rem;
+            color: var(--gray-600);
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            font-size: 0.95rem;
+            color: #999;
+            margin-bottom: 25px;
         }
 
         .file-input {
@@ -97,152 +142,403 @@
         }
 
         .upload-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             color: white;
             border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
+            padding: 15px 35px;
+            border-radius: 50px;
             font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            display: inline-block; /* เพื่อให้ label ทำตัวเหมือนปุ่ม */
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .upload-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .processing-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            z-index: 10;
+        }
+
+        .processing-overlay.show {
+            display: flex;
+        }
+
+        .message-box {
+            margin-top: 25px;
+        }
+
+        .alert {
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: #f0fff4;
+            color: #047857;
+            border-color: #6ee7b7;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        .loading-container {
+            text-align: center;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+            font-weight: 500;
         }
 
         .result-section {
             display: none;
         }
 
-        .message-box {
-             margin-top: 20px;
+        .result-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+            border: 1px solid var(--gray-200);
         }
 
-        .success-message, .error-message {
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid;
+        .result-header {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--gray-200);
         }
 
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
-        }
-
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            border-color: #f5c6cb;
-        }
-
-        .loading-container {
-            text-align: center;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 25px;
-            height: 25px;
-            border: 3px solid rgba(0,0,0,0.1);
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .no-history {
-            text-align: center;
-            color: #999;
-            padding: 20px;
-            border-radius: 10px;
-            background: #f1f1f1;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        th {
-            background: #f0f2ff;
+        .result-header h3 {
+            color: var(--gray-900);
+            font-size: 1.3rem;
             font-weight: 600;
         }
 
-        tr:hover {
-            background: #f8f9ff;
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .result-item {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--gray-100);
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: var(--gray-600);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .result-value {
+            color: var(--gray-900);
+            font-size: 1.1rem;
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 15px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .history-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+
+        .history-table tr:hover {
+            background: var(--gray-50);
+        }
+
+        .file-icon {
+            color: var(--primary-color);
+            margin-right: 8px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            background: var(--gray-50);
+            border-radius: 10px;
+        }
+
+        .clear-btn {
+            background: var(--error-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .clear-btn:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .clear-btn:disabled {
+            background: var(--gray-300);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .confirm-modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-content h4 {
+            margin-bottom: 15px;
+            color: var(--gray-900);
+        }
+
+        .modal-content p {
+            margin-bottom: 25px;
+            color: var(--gray-600);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn.confirm {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            background: #dc2626;
+        }
+
+        .modal-btn.cancel {
+            background: var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .modal-btn.cancel:hover {
+            background: var(--gray-300);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .upload-area {
+                padding: 30px 20px;
+            }
+            
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <h1><i class="fas fa-file-csv"></i> PK CRM - CSV Upload System</h1>
+            <h1>
+                <i class="fas fa-file-csv"></i>
+                PK CRM - CSV Upload System
+            </h1>
             <p>ระบบประมวลผลไฟล์ CSV สำหรับใบเสนอราคาและใบสั่งขาย (เวอร์ชัน 2.1)</p>
         </header>
 
-        <section class="upload-section">
-            <h2 class="section-title">
-                <i class="fas fa-cloud-upload-alt"></i>
-                อัปโหลดไฟล์ CSV
-            </h2>
-            
-            <div class="upload-area">
-                <div class="upload-icon">
-                    <i class="fas fa-file-csv"></i>
-                </div>
-                <p class="upload-text">
-                    คลิกหรือลากไฟล์ CSV มาวางที่นี่
-                </p>
-                <div style="font-size: 0.9rem; color: #999; margin-bottom: 20px;">
-                    รองรับไฟล์ CSV ขนาดไม่เกิน 10MB
-                </div>
-                
-                <label for="csvFile" class="upload-btn">
-                    <i class="fas fa-folder-open"></i> เลือกไฟล์
-                </label>
-                <input type="file" id="csvFile" name="csvFile" class="file-input" accept=".csv">
+        <main class="main-content">
+            <div class="left-column">
+                <section class="card upload-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        อัปโหลดไฟล์ CSV
+                    </h2>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <i class="fas fa-file-csv"></i>
+                        </div>
+                        <p class="upload-text">
+                            คลิกหรือลากไฟล์ CSV มาวางที่นี่
+                        </p>
+                        <div class="upload-subtext">
+                            รองรับไฟล์ CSV ขนาดไม่เกิน 10MB<br>
+                            รองรับการเข้ารหัส: windows-874, UTF-8
+                        </div>
+                        
+                        <label for="csvFile" class="upload-btn">
+                            <i class="fas fa-folder-open"></i>
+                            เลือกไฟล์
+                        </label>
+                        <input type="file" id="csvFile" name="csvFile" class="file-input" accept=".csv">
+                        
+                        <div class="processing-overlay" id="processingOverlay">
+                            <div class="loading-container">
+                                <div class="loading-spinner"></div>
+                                <div class="loading-text" id="processingText">กำลังประมวลผล...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="messageBox" class="message-box"></div>
+                </section>
+
+                <section class="card result-section" id="resultSection">
+                    <h2 class="section-title">
+                        <i class="fas fa-chart-line"></i>
+                        ผลการประมวลผล
+                    </h2>
+                    <div id="resultsContainer"></div>
+                </section>
             </div>
-            
-            <div id="message" class="message-box"></div>
-        </section>
 
-        <section class="result-section" id="resultSection">
-            <h2 class="section-title">
-                <i class="fas fa-chart-line"></i>
-                ผลการประมวลผล
-            </h2>
-            <div id="results"></div>
-        </section>
+            <aside class="sidebar">
+                <section class="card">
+                    <h3 class="section-title">
+                        <i class="fas fa-history"></i>
+                        ประวัติการอัปโหลด
+                    </h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <span style="font-size: 0.9rem; color: var(--gray-600);">ไฟล์ล่าสุด 10 รายการ</span>
+                        <button id="clearHistoryBtn" class="clear-btn" title="ลบข้อมูลเก่า">
+                            <i class="fas fa-trash-alt"></i> ลบข้อมูลเก่า
+                        </button>
+                    </div>
+                    <div id="historyContainer">
+                        <div class="loading-container">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">กำลังโหลดประวัติ...</div>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </main>
 
-        <section class="history-section" id="historySection">
-            <h2 class="section-title">
-                <i class="fas fa-history"></i> ประวัติการอัปโหลดไฟล์
-            </h2>
-            <div id="historyList"></div>
-        </section>
+        <!-- Confirm Delete Modal -->
+        <div id="confirmModal" class="confirm-modal">
+            <div class="modal-content">
+                <h4><i class="fas fa-exclamation-triangle" style="color: var(--warning-color);"></i> ยืนยันการลบข้อมูล</h4>
+                <p>คุณต้องการลบไฟล์เก่าและประวัติการอัปโหลดใช่หรือไม่?<br>
+                <small style="color: var(--error-color);">การดำเนินการนี้ไม่สามารถย้อนกลับได้</small></p>
+                <div class="modal-buttons">
+                    <button id="confirmDeleteBtn" class="modal-btn confirm">
+                        <i class="fas fa-trash"></i> ลบข้อมูล
+                    </button>
+                    <button id="cancelDeleteBtn" class="modal-btn cancel">
+                        <i class="fas fa-times"></i> ยกเลิก
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
