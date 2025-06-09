@@ -1,15 +1,75 @@
+// Function to run when the window has finished loading
 window.onload = function() {
+    // Get references to DOM elements
+    const fileInput = document.getElementById('csvFile');
+    const uploadArea = document.querySelector('.upload-area');
+
+    // Initial load of upload history
     loadHistory();
-    document.getElementById('csvFile').addEventListener('change', handleFileSelect);
+
+    // --- Event Listeners Setup ---
+
+    // 1. Trigger file input click when the upload area is clicked
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // 2. Handle file selection from the file input dialog
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // 3. Handle Drag and Drop events
+    // Prevent default behavior for drag events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Add visual feedback when a file is dragged over the upload area
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => uploadArea.classList.add('active'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('active'), false);
+    });
+
+    // Handle the dropped file
+    uploadArea.addEventListener('drop', handleDrop, false);
 };
 
+/**
+ * Handles the file selection event.
+ * @param {Event} event The file input change event.
+ */
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (file) {
         uploadFile(file);
     }
+    // Clear the input value to allow re-selecting the same file
+    event.target.value = null;
 }
 
+/**
+ * Handles the file drop event.
+ * @param {DragEvent} event The drop event.
+ */
+function handleDrop(event) {
+    const dt = event.dataTransfer;
+    const file = dt.files[0];
+    if (file) {
+        uploadFile(file);
+    }
+}
+
+/**
+ * Uploads the selected file to the server and handles the response.
+ * @param {File} file The file to upload.
+ */
 async function uploadFile(file) {
     const formData = new FormData();
     formData.append('csvFile', file);
@@ -17,13 +77,13 @@ async function uploadFile(file) {
     const messageDiv = document.getElementById('message');
     const resultSection = document.getElementById('resultSection');
     const resultsDiv = document.getElementById('results');
-    const historyList = document.getElementById('historyList');
 
-    // Show loading
+    // Show loading indicator
+    resultSection.style.display = 'none'; // Hide previous results
     messageDiv.innerHTML = `
-        <div style="text-align: center; padding: 20px;">
+        <div class="loading-container">
             <div class="loading"></div>
-            <p>กำลังประมวลผลไฟล์ CSV...</p>
+            <p>กำลังประมวลผลไฟล์: ${file.name}</p>
         </div>
     `;
 
@@ -33,134 +93,150 @@ async function uploadFile(file) {
             body: formData
         });
 
+        // Robust error handling: check if response is ok
+        if (!response.ok) {
+            let errorMsg = `เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: ${response.status} ${response.statusText}`;
+            try {
+                // Try to get a more specific error message from the server's JSON response
+                const errorResult = await response.json();
+                errorMsg = errorResult.error || JSON.stringify(errorResult);
+            } catch (e) {
+                // If the response is not JSON, use the raw text
+                const textError = await response.text();
+                if (textError) errorMsg = textError;
+            }
+            throw new Error(errorMsg);
+        }
+
         const result = await response.json();
-        console.log(result);
 
         if (result.success) {
+            // Display success message
             messageDiv.innerHTML = `
                 <div class="success-message">
                     <i class="fas fa-check-circle"></i>
-                    ประมวลผลไฟล์ CSV สำเร็จ!
+                    <span>ประมวลผลไฟล์ CSV สำเร็จ!</span>
                 </div>
             `;
 
+            // Display processing results
             resultsDiv.innerHTML = `
                 <div style="background: #f8f9fa; border-radius: 10px; padding: 20px;">
                     <h3><i class="fas fa-file-alt"></i> ${result.file.originalName}</h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                        <div style="background: white; padding: 15px; border-radius: 8px;">
+                        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                             <strong>ประเภทเอกสาร:</strong><br>
                             ${getDocumentTypeText(result.parsing.documentType)}
                         </div>
-                        <div style="background: white; padding: 15px; border-radius: 8px;">
+                        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                             <strong>เลขที่เอกสาร:</strong><br>
                             ${result.summary.documentNumber || 'ไม่ระบุ'}
                         </div>
-                        <div style="background: white; padding: 15px; border-radius: 8px;">
+                        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                             <strong>ลูกค้า:</strong><br>
                             ${result.summary.customerName || 'ไม่ระบุ'}
                         </div>
-                        <div style="background: white; padding: 15px; border-radius: 8px;">
+                        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                             <strong>ยอดรวม:</strong><br>
                             ${formatCurrency(result.summary.grandTotal)}
                         </div>
                     </div>
                 </div>
             `;
-
-            // Update history
-            updateHistorySection(result.file.originalName, result.summary.documentNumber, result.summary.customerName, result.summary.grandTotal);
-
             resultSection.style.display = 'block';
+
+            // Refresh the history to include the new file
+            await loadHistory();
+
         } else {
-            messageDiv.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    เกิดข้อผิดพลาด: ${result.error}
-                </div>
-            `;
+            throw new Error(result.error || 'เกิดข้อผิดพลาดที่ไม่รู้จัก');
         }
 
     } catch (error) {
+        console.error('Upload Failed:', error);
         messageDiv.innerHTML = `
             <div class="error-message">
                 <i class="fas fa-exclamation-triangle"></i>
-                เกิดข้อผิดพลาด: ${error.message}
+                <span>${error.message}</span>
             </div>
         `;
     }
 }
 
+/**
+ * Fetches and displays the upload history from the server.
+ */
+async function loadHistory() {
+    const historyList = document.getElementById('historyList');
+    historyList.innerHTML = `<div class="loading-container"><div class="loading"></div><p>กำลังโหลดประวัติ...</p></div>`;
+
+    try {
+        const response = await fetch('/files');
+        if (!response.ok) {
+            throw new Error(`ไม่สามารถโหลดประวัติได้: ${response.statusText}`);
+        }
+        const files = await response.json();
+
+        if (!files || files.length === 0) {
+            historyList.innerHTML = '<div class="no-history">ยังไม่มีประวัติการอัปโหลด</div>';
+            return;
+        }
+
+        const tableRows = files.map(f => `
+            <tr>
+                <td><i class="fas fa-file-csv" style="margin-right: 8px; color: #777;"></i>${f.fileName}</td>
+                <td>${(f.size / 1024).toFixed(2)} KB</td>
+                <td>${new Date(f.createdAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'medium' })}</td>
+            </tr>
+        `).join('');
+
+        historyList.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ชื่อไฟล์</th>
+                        <th>ขนาด</th>
+                        <th>วันที่อัปโหลด</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        console.error('Failed to load history:', e);
+        historyList.innerHTML = '<div class="error-message">เกิดข้อผิดพลาดในการโหลดประวัติ</div>';
+    }
+}
+
+
+// --- Helper Functions ---
+
+/**
+ * Converts a document type identifier to a human-readable Thai string.
+ * @param {string} type The document type identifier.
+ * @returns {string} The Thai document type.
+ */
 function getDocumentTypeText(type) {
-    switch(type) {
+    switch (type) {
         case 'quotation': return 'ใบเสนอราคา';
         case 'sales_order': return 'ใบสั่งขาย';
         default: return 'ไม่ระบุ';
     }
 }
 
+/**
+ * Formats a number as Thai Baht currency.
+ * @param {number} amount The amount to format.
+ * @returns {string} The formatted currency string.
+ */
 function formatCurrency(amount) {
-    if (!amount) return 'ไม่ระบุ';
+    if (typeof amount !== 'number') {
+        return 'ไม่ระบุ';
+    }
     return new Intl.NumberFormat('th-TH', {
         style: 'currency',
         currency: 'THB'
     }).format(amount);
 }
-
-function updateHistorySection(fileName, documentNumber, customerName, grandTotal) {
-    const historyList = document.getElementById('historyList');
-
-    const historyItem = document.createElement('div');
-    historyItem.className = 'history-item';
-    historyItem.innerHTML = `
-        <strong>ไฟล์:</strong> ${fileName} <br>
-        <strong>เลขที่เอกสาร:</strong> ${documentNumber || 'ไม่ระบุ'} <br>
-        <strong>ลูกค้า:</strong> ${customerName || 'ไม่ระบุ'} <br>
-        <strong>ยอดรวม:</strong> ${formatCurrency(grandTotal)} <br>
-        <small style="color:#999;">${new Date().toLocaleString('th-TH')}</small>
-    `;
-
-    historyList.prepend(historyItem);
-
-    // Limit history to last 5 items
-    const historyItems = historyList.getElementsByClassName('history-item');
-    if (historyItems.length > 5) {
-        historyList.removeChild(historyItems[historyItems.length - 1]);
-    }
-}
-
-async function loadHistory() {
-    const historyList = document.getElementById('historyList');
-    historyList.innerHTML = '<div>กำลังโหลด...</div>';
-    try {
-        const res = await fetch('/files');
-        const files = await res.json();
-        if (!files.length) {
-            historyList.innerHTML = '<div>ยังไม่มีประวัติการอัปโหลด</div>';
-            return;
-        }
-        historyList.innerHTML = `
-            <table style="width:100%; border-collapse:collapse;">
-                <thead>
-                    <tr style="background:#f0f2ff;">
-                        <th style="padding:8px;">ชื่อไฟล์</th>
-                        <th style="padding:8px;">ขนาด</th>
-                        <th style="padding:8px;">วันที่อัปโหลด</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${files.map(f => `
-                        <tr>
-                            <td style="padding:8px;">${f.fileName}</td>
-                            <td style="padding:8px;">${(f.size/1024).toFixed(2)} KB</td>
-                            <td style="padding:8px;">${new Date(f.createdAt).toLocaleString('th-TH')}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    } catch (e) {
-        historyList.innerHTML = '<div style="color:red;">เกิดข้อผิดพลาดในการโหลดประวัติ</div>';
-    }
-}
-
