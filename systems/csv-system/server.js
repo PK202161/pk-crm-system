@@ -46,7 +46,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000000);
-    cb(null, `csv-<span class="math-inline">\{timestamp\}\-</span>{random}.csv`);
+    cb(null, `csv-${timestamp}-${random}.csv`);
   }
 });
 
@@ -232,6 +232,10 @@ app.get('/health', (req, res) => {
 
 // Main upload endpoint
 app.post('/upload', upload.single('csvFile'), async (req, res) => {
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  // ลบไฟล์เก่าก่อนประมวลผล
+  deleteOldFiles(uploadDir);
+
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -243,6 +247,8 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
     const parser = new PKCSVParser();
     const parseResult = await parser.parseCSVFile(req.file.path);
     if (!parseResult.success) {
+      // ลบไฟล์ที่อัปโหลดถ้า parse ไม่สำเร็จ
+      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
         error: 'ไม่สามารถประมวลผลไฟล์ CSV ได้: ' + parseResult.error
@@ -258,13 +264,20 @@ app.post('/upload', upload.single('csvFile'), async (req, res) => {
         originalName: req.file.originalname,
         fileName: req.file.filename,
         size: req.file.size,
+        path: req.file.path
       },
       parsing: parseResult,
       webhook: webhookResult,
       summary: generateSummary(parseResult.data)
     };
+    // ลบไฟล์หลังประมวลผลเสร็จ
+    fs.unlinkSync(req.file.path);
     res.json(response);
   } catch (error) {
+    // ลบไฟล์ถ้ามี error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     console.error('❌ Upload error:', error);
     res.status(500).json({
       success: false,
@@ -304,6 +317,25 @@ function generateSummary(data) {
     salesperson: data.sales_info.salesperson,
     grandTotal: data.financial_summary.grand_total,
   };
+}
+
+// เพิ่มฟังก์ชันลบไฟล์เก่ากว่า 1 วัน
+function deleteOldFiles(uploadDir, maxAgeMs = 24 * 60 * 60 * 1000) {
+  if (!fs.existsSync(uploadDir)) return;
+  const files = fs.readdirSync(uploadDir);
+  const now = Date.now();
+  files.forEach(file => {
+    const filePath = path.join(uploadDir, file);
+    try {
+      const stats = fs.statSync(filePath);
+      if (now - stats.mtimeMs > maxAgeMs) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ Deleted old file: ${file}`);
+      }
+    } catch (e) {
+      // ignore error
+    }
+  });
 }
 
 // Error handling middleware
