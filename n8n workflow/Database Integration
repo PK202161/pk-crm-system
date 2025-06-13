@@ -331,48 +331,15 @@ try {
 
     const operations = createDatabaseOperations(documentData);
 
-    const output = {
-        success: true,
-        document_type: documentData.documentType,
-        document_number: documentData.documentNumber,
-        customer_code: documentData.customerCode,
-        customer_name: documentData.customerName,
-        total_amount: documentData.total,
-        item_count: documentData.itemCount,
-        operations_count: operations.length,
-        operations: operations,
-        document: {
-            type: documentData.documentType,
-            number: documentData.documentNumber,
-            customer_code: documentData.customerCode,
-            customer_name: documentData.customerName,
-            total_amount: documentData.total,
-            item_count: documentData.itemCount,
-            date: documentData.date,
-            due_date: documentData.dueDate,
-            delivery_date: documentData.deliveryDate,
-            po_reference: documentData.poReference,
-            salesperson: documentData.salesPerson,
-            territory: documentData.territory,
-            subtotal: documentData.subtotal,
-            discount: documentData.discount,
-            vat_amount: documentData.vat,
-            payment_term: documentData.paymentTerm,
-            source_file: documentData.sourceFile,
-            processed_date: documentData.processedAt,
-            valid_days: documentData.validDays || 0,
-            address: ((documentData.addressLine1 || '') + ' ' + (documentData.addressLine2 || '')).trim(),
-            contact_person: documentData.contactPerson || ''
-        },
-        processing: {
-            success: true,
-            timestamp: new Date().toISOString(),
-            operations_created: operations.length,
-            source: 'xml_parser_corrected'
-        }
-    };
-
-    return [{ json: output }];
+    return operations.map(op => ({
+      json: {
+        step: op.step,
+        description: op.description,
+        query: op.query,
+        parameters: op.parameters,
+        metadata: op.metadata
+      }
+    }));
 
 } catch (error) {
     return [{
