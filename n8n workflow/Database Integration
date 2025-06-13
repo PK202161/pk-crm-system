@@ -1,0 +1,418 @@
+// 🔧 N8N Workflow Fix - รองรับ Sales Order และ Quotation
+
+console.log('=== N8N Workflow Fix for SO6811620 ===');
+
+// ==============================================
+// 🔍 รับข้อมูลจาก XML Parser (Format ใหม่)
+// ==============================================
+
+const inputData = $input.all();
+let documentData;
+if (Array.isArray(inputData) && inputData.length > 0) {
+    documentData = inputData[0].json;
+} else {
+    documentData = $input.first().json;
+}
+
+// ==============================================
+// 🛠️ สร้าง Database Operations
+// ==============================================
+function createDatabaseOperations(data) {
+    const operations = [];
+    // 1. BEGIN Transaction
+    operations.push({
+        step: 'transaction_begin',
+        description: 'Begin Transaction',
+        query: 'BEGIN;',
+        parameters: [],
+        metadata: {
+            document_type: data.documentType,
+            document_number: data.documentNumber,
+            timestamp: new Date().toISOString()
+        }
+    });
+
+    // 2. Customer UPSERT
+    operations.push({
+        step: 'customer_upsert',
+        description: 'Customer UPSERT',
+        query: `INSERT INTO customers (
+            customer_code, company_name, contact_name, address, territory, payment_terms, contact_method, status, created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+        )
+        ON CONFLICT (customer_code) 
+        DO UPDATE SET 
+          company_name = EXCLUDED.company_name, 
+          contact_name = EXCLUDED.contact_name,
+          address = EXCLUDED.address,
+          territory = EXCLUDED.territory,
+          payment_terms = EXCLUDED.payment_terms,
+          contact_method = EXCLUDED.contact_method,
+          updated_at = NOW()
+        RETURNING customer_id, customer_code, company_name;`,
+        parameters: [
+            data.dbReady.customer.customer_code,
+            data.dbReady.customer.company_name,
+            data.dbReady.customer.primary_contact_info || '', // contact_name
+            (data.dbReady.customer.address_line_1 || '') + ' ' + (data.dbReady.customer.address_line_2 || ''), // address
+            data.dbReady.customer.territory || '',
+            data.dbReady.customer.payment_term || '',
+            data.dbReady.customer.contact_method,
+            data.dbReady.customer.status
+        ],
+        metadata: { step: 'customer_upsert' }
+    });
+
+    // 3. Opportunity UPSERT
+    operations.push({
+        step: 'opportunity_upsert',
+        description: 'Opportunity UPSERT',
+        query: `INSERT INTO opportunities (
+                  customer_id, document_number, document_type, status, 
+                  estimated_value, assigned_salesperson, created_date, territory, 
+                  created_at, updated_at
+                ) VALUES (
+                  (SELECT customer_id FROM customers WHERE customer_code = $1),
+                  $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+                )
+                ON CONFLICT (document_number) 
+                DO UPDATE SET 
+                  status = EXCLUDED.status, 
+                  estimated_value = EXCLUDED.estimated_value, 
+                  assigned_salesperson = EXCLUDED.assigned_salesperson,
+                  territory = EXCLUDED.territory,
+                  updated_at = NOW()
+                RETURNING opportunity_id, document_number, status;`,
+        parameters: [
+            data.dbReady.opportunity.customer_code,
+            data.dbReady.opportunity.document_number,
+            data.dbReady.opportunity.document_type,
+            data.dbReady.opportunity.status,
+            parseFloat(data.dbReady.opportunity.estimated_value),
+            data.dbReady.opportunity.assigned_salesperson,
+            data.dbReady.opportunity.created_date,
+            data.dbReady.opportunity.territory || ''
+        ],
+        metadata: { step: 'opportunity_upsert' }
+    });
+
+    // 4. Quotation หรือ Sales Order
+    if (data.documentType === 'quotation') {
+        // 4.1 Quotation UPSERT
+        operations.push({
+            step: 'quotation_upsert',
+            description: 'Quotation UPSERT',
+            query: `
+                INSERT INTO quotations (
+                    quotation_number, opportunity_id, customer_code, customer_name,
+                    quote_date, valid_until, subtotal, discount_amount, vat_amount, total_amount,
+                    item_count, payment_terms, delivery_terms, notes, pdf_file_path, status,
+                    created_at, updated_at, territory, source_file, salesperson, salesperson_id,
+                    salesperson_code, salesperson_name, discount_percent, quotation_version,
+                    reference_number, contact_person, valid_days
+                ) VALUES (
+                    $1, (SELECT opportunity_id FROM opportunities WHERE document_number = $1), $2, $3,
+                    $4, $5, $6, $7, $8, $9,
+                    $10, $11, $12, $13, $14, 'draft',
+                    NOW(), NOW(), $15, $16, $17, $18,
+                    $19, $20, $21, $22, $23, $24, $25
+                )
+                ON CONFLICT (quotation_number)
+                DO UPDATE SET
+                    customer_code = EXCLUDED.customer_code,
+                    customer_name = EXCLUDED.customer_name,
+                    quote_date = EXCLUDED.quote_date,
+                    valid_until = EXCLUDED.valid_until,
+                    subtotal = EXCLUDED.subtotal,
+                    discount_amount = EXCLUDED.discount_amount,
+                    vat_amount = EXCLUDED.vat_amount,
+                    total_amount = EXCLUDED.total_amount,
+                    item_count = EXCLUDED.item_count,
+                    payment_terms = EXCLUDED.payment_terms,
+                    delivery_terms = EXCLUDED.delivery_terms,
+                    notes = EXCLUDED.notes,
+                    pdf_file_path = EXCLUDED.pdf_file_path,
+                    status = EXCLUDED.status,
+                    updated_at = NOW(),
+                    territory = EXCLUDED.territory,
+                    source_file = EXCLUDED.source_file,
+                    salesperson = EXCLUDED.salesperson,
+                    salesperson_id = EXCLUDED.salesperson_id,
+                    salesperson_code = EXCLUDED.salesperson_code,
+                    salesperson_name = EXCLUDED.salesperson_name,
+                    discount_percent = EXCLUDED.discount_percent,
+                    quotation_version = EXCLUDED.quotation_version,
+                    reference_number = EXCLUDED.reference_number,
+                    contact_person = EXCLUDED.contact_person,
+                    valid_days = EXCLUDED.valid_days
+                RETURNING quotation_id, quotation_number;
+            `,
+            parameters: [
+                data.dbReady.document.document_number,           // $1: quotation_number
+                data.dbReady.document.customer_code,             // $2
+                data.dbReady.document.customer_name,             // $3
+                data.dbReady.document.document_date,             // $4: quote_date
+                data.dbReady.document.due_date || null,          // $5: valid_until
+                parseFloat(data.dbReady.document.subtotal) || 0, // $6
+                parseFloat(data.dbReady.document.discount) || 0, // $7
+                parseFloat(data.dbReady.document.vat_amount) || 0, // $8
+                parseFloat(data.dbReady.document.total_amount) || 0, // $9
+                parseInt(data.dbReady.document.item_count) || 0, // $10
+                data.dbReady.document.payment_term || '',        // $11
+                data.dbReady.document.delivery_term || '',       // $12
+                data.dbReady.document.notes || '',               // $13
+                data.dbReady.document.pdf_file_path || '',       // $14
+                data.dbReady.document.territory || '',           // $15
+                data.dbReady.document.source_file || '',         // $16
+                data.dbReady.document.salesperson || '',         // $17
+                data.dbReady.document.salesperson_id || null,    // $18
+                data.dbReady.document.salesperson_code || '',    // $19
+                data.dbReady.document.salesperson_name || '',    // $20
+                parseFloat(data.dbReady.document.discount_percent) || 0, // $21
+                parseInt(data.dbReady.document.quotation_version) || 1,  // $22
+                data.dbReady.document.reference_number || '',    // $23
+                data.dbReady.document.contact_person || '',      // $24
+                parseInt(data.dbReady.document.valid_days) || 0  // $25
+            ],
+            metadata: { step: 'quotation_upsert' }
+        });
+
+        // 4.2 Clear old quote items
+        operations.push({
+            step: 'clear_quote_items',
+            description: 'Clear Old Quote Items',
+            query: `DELETE FROM quote_items WHERE quotation_id = (SELECT quotation_id FROM quotations WHERE quotation_number = $1);`,
+            parameters: [data.dbReady.document.document_number],
+            metadata: { step: 'clear_quote_items' }
+        });
+
+        // 4.3 Insert quote items
+        data.dbReady.items.forEach((item, index) => {
+            operations.push({
+                step: `insert_quote_item_${index + 1}`,
+                description: `Insert Quote Item ${item.line_number}`,
+                query: `INSERT INTO quote_items (
+                            quotation_id, line_number, product_code, description,
+                            quantity, unit, unit_price, line_total, created_at
+                        ) VALUES (
+                            (SELECT quotation_id FROM quotations WHERE quotation_number = $1),
+                            $2, $3, $4, $5, $6, $7, $8, NOW()
+                        );`,
+                parameters: [
+                    item.document_number,
+                    parseInt(item.line_number) || (index + 1),
+                    item.product_code || '',
+                    item.product_description || '',
+                    parseFloat(item.quantity) || 0,
+                    item.unit || '',
+                    parseFloat(item.unit_price) || 0,
+                    parseFloat(item.line_total) || 0
+                ],
+                metadata: { step: 'insert_quote_item', item_index: index }
+            });
+        });
+
+    } else if (data.documentType === 'sales_order') {
+        // 4.1 Sales Order UPSERT
+        operations.push({
+            step: 'sales_order_upsert',
+            description: 'Sales Order UPSERT',
+            query: `INSERT INTO sales_orders (
+                      so_number, opportunity_id, customer_id, customer_name,
+                      order_date, delivery_date, po_reference, salesperson, territory,
+                      subtotal, discount_amount, vat_amount, total_amount, item_count,
+                      payment_terms, source_file, status, created_at, updated_at
+                    ) VALUES (
+                      $1,
+                      (SELECT opportunity_id FROM opportunities WHERE document_number = $1),
+                      (SELECT customer_id FROM customers WHERE customer_code = $2),
+                      $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'confirmed', NOW(), NOW()
+                    )
+                    ON CONFLICT (so_number) 
+                    DO UPDATE SET 
+                      customer_id = EXCLUDED.customer_id,
+                      customer_name = EXCLUDED.customer_name,
+                      order_date = EXCLUDED.order_date,
+                      delivery_date = EXCLUDED.delivery_date,
+                      po_reference = EXCLUDED.po_reference,
+                      salesperson = EXCLUDED.salesperson,
+                      territory = EXCLUDED.territory,
+                      subtotal = EXCLUDED.subtotal,
+                      discount_amount = EXCLUDED.discount_amount,
+                      vat_amount = EXCLUDED.vat_amount,
+                      total_amount = EXCLUDED.total_amount,
+                      item_count = EXCLUDED.item_count,
+                      payment_terms = EXCLUDED.payment_terms,
+                      source_file = EXCLUDED.source_file,
+                      updated_at = NOW()
+                    RETURNING sales_order_id, so_number;`,
+            parameters: [
+                data.dbReady.document.document_number,
+                data.dbReady.document.customer_code,
+                data.dbReady.document.customer_name,
+                data.dbReady.document.document_date,
+                data.dbReady.document.delivery_date || null,
+                data.dbReady.document.po_reference || '',
+                data.dbReady.document.salesperson,
+                data.dbReady.document.territory || '',
+                parseFloat(data.dbReady.document.subtotal) || 0,
+                parseFloat(data.dbReady.document.discount) || 0,
+                parseFloat(data.dbReady.document.vat_amount) || 0,
+                parseFloat(data.dbReady.document.total_amount) || 0,
+                parseInt(data.dbReady.document.item_count) || 0,
+                data.dbReady.document.payment_term || '',
+                data.dbReady.document.source_file || ''
+            ],
+            metadata: { step: 'sales_order_upsert' }
+        });
+
+        // 4.2 Clear old sales order items
+        operations.push({
+            step: 'clear_sales_order_items',
+            description: 'Clear Old Sales Order Items',
+            query: `DELETE FROM sales_order_items 
+                    WHERE sales_order_id = (
+                      SELECT sales_order_id FROM sales_orders WHERE so_number = $1
+                    );`,
+            parameters: [
+                data.dbReady.document.document_number
+            ],
+            metadata: { step: 'clear_sales_order_items' }
+        });
+
+        // 4.3 Insert sales order items
+        data.dbReady.items.forEach((item, index) => {
+            operations.push({
+                step: `insert_sales_order_item_${index + 1}`,
+                description: `Insert Sales Order Item ${item.line_number}`,
+                query: `INSERT INTO sales_order_items (
+                          sales_order_id, line_number, product_code, product_description,
+                          quantity, unit, unit_price, line_total, discount_amount, created_at
+                        ) VALUES (
+                          (SELECT sales_order_id FROM sales_orders WHERE so_number = $1),
+                          $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+                        );`,
+                parameters: [
+                    item.document_number,
+                    parseInt(item.line_number) || (index + 1),
+                    item.product_code || '',
+                    item.product_description || '',
+                    parseFloat(item.quantity) || 0,
+                    item.unit || '',
+                    parseFloat(item.unit_price) || 0,
+                    parseFloat(item.line_total) || 0,
+                    parseFloat(item.discount) || 0
+                ],
+                metadata: { step: 'insert_sales_order_item', item_index: index }
+            });
+        });
+    }
+
+    // 5. COMMIT Transaction
+    operations.push({
+        step: 'transaction_commit',
+        description: 'Commit Transaction',
+        query: 'COMMIT;',
+        parameters: [],
+        metadata: { step: 'commit' }
+    });
+
+    return operations;
+}
+
+// ==============================================
+// 🔄 Main Processing
+// ==============================================
+try {
+    if (!documentData.success || !documentData.dbReady) {
+        throw new Error('Document processing failed or dbReady data missing');
+    }
+
+    const operations = createDatabaseOperations(documentData);
+
+    const output = {
+        success: true,
+        document_type: documentData.documentType,
+        document_number: documentData.documentNumber,
+        customer_code: documentData.customerCode,
+        customer_name: documentData.customerName,
+        total_amount: documentData.total,
+        item_count: documentData.itemCount,
+        operations_count: operations.length,
+        operations: operations,
+        document: {
+            type: documentData.documentType,
+            number: documentData.documentNumber,
+            customer_code: documentData.customerCode,
+            customer_name: documentData.customerName,
+            total_amount: documentData.total,
+            item_count: documentData.itemCount,
+            date: documentData.date,
+            due_date: documentData.dueDate,
+            delivery_date: documentData.deliveryDate,
+            po_reference: documentData.poReference,
+            salesperson: documentData.salesPerson,
+            territory: documentData.territory,
+            subtotal: documentData.subtotal,
+            discount: documentData.discount,
+            vat_amount: documentData.vat,
+            payment_term: documentData.paymentTerm,
+            source_file: documentData.sourceFile,
+            processed_date: documentData.processedAt,
+            valid_days: documentData.validDays || 0,
+            address: ((documentData.addressLine1 || '') + ' ' + (documentData.addressLine2 || '')).trim(),
+            contact_person: documentData.contactPerson || ''
+        },
+        processing: {
+            success: true,
+            timestamp: new Date().toISOString(),
+            operations_created: operations.length,
+            source: 'xml_parser_corrected'
+        }
+    };
+
+    return [{ json: output }];
+
+} catch (error) {
+    return [{
+        json: {
+            success: false,
+            error: error.message,
+            document_type: documentData?.documentType || 'unknown',
+            document_number: documentData?.documentNumber || 'unknown',
+            operations: [{
+                step: 'error_rollback',
+                description: 'Error Rollback',
+                query: 'ROLLBACK;',
+                parameters: [],
+                metadata: { error: error.message }
+            }],
+            timestamp: new Date().toISOString()
+        }
+    }];
+}
+
+// 📝 การใช้งาน
+// ==============================================
+/*
+วิธีแก้ไข N8N Workflow:
+
+1. แทนที่ "Database Integration Node" ด้วย code นี้
+2. Connection: XML Parser → Node นี้ → Split Out → PostgreSQL
+
+การตั้งค่า PostgreSQL Node:
+- Operation: Execute Query
+- Query: ={{ $json.query }}
+- Parameters: ={{ $json.parameters }}
+
+ปัญหาเดิม:
+- BEGIN command ได้รับ parameters ที่ไม่ควรมี
+- Parameter types ไม่ถูกต้อง
+- Query structure ไม่ตรงกับข้อมูล
+
+การแก้ไข:
+- Transaction commands (BEGIN/COMMIT) ไม่มี parameters
+- Parameter types แปลงให้ถูกต้อง (string/number)
+- SQL queries ตรงกับ database schema
+*/
