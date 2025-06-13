@@ -36,17 +36,30 @@ function createDatabaseOperations(data) {
     operations.push({
         step: 'customer_upsert',
         description: 'Customer UPSERT',
-        query: `INSERT INTO customers (customer_code, company_name, contact_method, status, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, NOW(), NOW())
-                ON CONFLICT (customer_code) 
-                DO UPDATE SET 
-                  company_name = EXCLUDED.company_name, 
-                  contact_method = EXCLUDED.contact_method, 
-                  updated_at = NOW()
-                RETURNING customer_id, customer_code, company_name;`,
+        query: `INSERT INTO customers (
+            customer_code, company_name, contact_name, address, address_full, territory, payment_terms, contact_method, status, created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()
+        )
+        ON CONFLICT (customer_code) 
+        DO UPDATE SET 
+          company_name = EXCLUDED.company_name, 
+          contact_name = EXCLUDED.contact_name,
+          address = EXCLUDED.address,
+          address_full = EXCLUDED.address_full,
+          territory = EXCLUDED.territory,
+          payment_terms = EXCLUDED.payment_terms,
+          contact_method = EXCLUDED.contact_method,
+          updated_at = NOW()
+        RETURNING customer_id, customer_code, company_name;`,
         parameters: [
             data.dbReady.customer.customer_code,
             data.dbReady.customer.company_name,
+            data.dbReady.customer.primary_contact_info || '', // contact_name
+            (data.dbReady.customer.address_line_1 || '') + ' ' + (data.dbReady.customer.address_line_2 || ''), // address
+            (data.dbReady.customer.address_line_1 || '') + ' ' + (data.dbReady.customer.address_line_2 || ''), // address_full
+            data.dbReady.customer.territory || '',
+            data.dbReady.customer.payment_term || '',
             data.dbReady.customer.contact_method,
             data.dbReady.customer.status
         ],
@@ -99,13 +112,13 @@ function createDatabaseOperations(data) {
                     item_count, payment_terms, delivery_terms, notes, pdf_file_path, status,
                     created_at, updated_at, territory, source_file, salesperson, salesperson_id,
                     salesperson_code, salesperson_name, discount_percent, quotation_version,
-                    reference_number
+                    reference_number, contact_person, valid_days
                 ) VALUES (
                     $1, (SELECT opportunity_id FROM opportunities WHERE document_number = $1), $2, $3,
                     $4, $5, $6, $7, $8, $9,
                     $10, $11, $12, $13, $14, 'draft',
                     NOW(), NOW(), $15, $16, $17, $18,
-                    $19, $20, $21, $22, $23
+                    $19, $20, $21, $22, $23, $24, $25
                 )
                 ON CONFLICT (quotation_number)
                 DO UPDATE SET
@@ -132,7 +145,9 @@ function createDatabaseOperations(data) {
                     salesperson_name = EXCLUDED.salesperson_name,
                     discount_percent = EXCLUDED.discount_percent,
                     quotation_version = EXCLUDED.quotation_version,
-                    reference_number = EXCLUDED.reference_number
+                    reference_number = EXCLUDED.reference_number,
+                    contact_person = EXCLUDED.contact_person,
+                    valid_days = EXCLUDED.valid_days
                 RETURNING quotation_id, quotation_number;
             `,
             parameters: [
@@ -158,7 +173,9 @@ function createDatabaseOperations(data) {
                 data.dbReady.document.salesperson_name || '',    // $20
                 parseFloat(data.dbReady.document.discount_percent) || 0, // $21
                 parseInt(data.dbReady.document.quotation_version) || 1,  // $22
-                data.dbReady.document.reference_number || ''     // $23
+                data.dbReady.document.reference_number || '',    // $23
+                data.dbReady.document.contact_person || '',      // $24
+                parseInt(data.dbReady.document.valid_days) || 0  // $25
             ],
             metadata: { step: 'quotation_upsert' }
         });

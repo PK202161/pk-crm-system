@@ -49,7 +49,11 @@ function parseCorrectedPKXML(xmlText) {
     success: false,
     processedAt: new Date().toISOString(),
     encoding: 'utf-8-xml',
-    parser: 'xml-corrected'
+    parser: 'xml-corrected',
+    contactPerson: '',      // เพิ่ม
+    addressLine1: '',       // เพิ่ม
+    addressLine2: '',       // เพิ่ม
+    validDays: 0,           // เพิ่ม
   };
 
   try {
@@ -180,6 +184,58 @@ function parseCorrectedPKXML(xmlText) {
             console.log('✅ Payment term:', result.paymentTerm);
           }
         }
+
+        // 1. Contact Person
+        if (cell.value.includes('ติดต่อ')) {
+          if (cellIndex + 1 < row.length) {
+            result.contactPerson = row[cellIndex + 1].value;
+            console.log('✅ Found Contact Person:', result.contactPerson);
+          }
+        }
+
+        // 3. Validity Days
+        if (cell.value.includes('ยืนราคา')) {
+          if (cellIndex + 1 < row.length) {
+            const validDaysText = row[cellIndex + 1].value;
+            const match = validDaysText.match(/\d+/);
+            if (match) {
+              result.validDays = parseInt(match[0], 10);
+              console.log('✅ Found Validity Days:', result.validDays);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Address (หลังเจอ customerName แล้ว)
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const row = rows[rowIndex];
+      let hasCustomerCode = false;
+      for (const cell of row) {
+        if (cell.value === result.customerCode) {
+          hasCustomerCode = true;
+          break;
+        }
+      }
+      if (hasCustomerCode) {
+        // ...หา customerName เดิม...
+        // หลังเจอ customerName แล้ว:
+        if (result.customerName) {
+          // Address Line 1
+          if (rowIndex + 1 < rows.length && rows[rowIndex + 1].length > 1) {
+            result.addressLine1 = rows[rowIndex + 1][1].value;
+            console.log('✅ Found Address Line 1:', result.addressLine1);
+          }
+          // Address Line 2
+          if (rowIndex + 2 < rows.length && rows[rowIndex + 2].length > 1) {
+            const potentialAddr2 = rows[rowIndex + 2][1].value;
+            if (!potentialAddr2.includes('ติดต่อ')) {
+              result.addressLine2 = potentialAddr2;
+              console.log('✅ Found Address Line 2:', result.addressLine2);
+            }
+          }
+        }
+        break;
       }
     }
 
@@ -441,7 +497,10 @@ try {
         customer_code: parseResult.customerCode,
         company_name: parseResult.customerName,
         contact_method: 'slack',
-        status: 'active'
+        status: 'active',
+        address_line_1: parseResult.addressLine1 || '',
+        address_line_2: parseResult.addressLine2 || '',
+        primary_contact_info: parseResult.contactPerson || ''
       },
       
       opportunity: {
@@ -471,9 +530,10 @@ try {
         vat_amount: parseResult.vat,
         total_amount: parseResult.total,
         item_count: parseResult.itemCount,
-        payment_term: parseResult.paymentTerm, // <<--- เพิ่มตรงนี้
+        payment_term: parseResult.paymentTerm,
         source_file: parseResult.sourceFile,
-        processed_date: parseResult.processedAt
+        processed_date: parseResult.processedAt,
+        valid_days: parseResult.validDays || 0
       },
       
       items: parseResult.items.map(item => ({
