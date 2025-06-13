@@ -37,16 +37,15 @@ function createDatabaseOperations(data) {
         step: 'customer_upsert',
         description: 'Customer UPSERT',
         query: `INSERT INTO customers (
-            customer_code, company_name, contact_name, address, address_full, territory, payment_terms, contact_method, status, created_at, updated_at
+            customer_code, company_name, contact_name, address, territory, payment_terms, contact_method, status, created_at, updated_at
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()
+            $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
         )
         ON CONFLICT (customer_code) 
         DO UPDATE SET 
           company_name = EXCLUDED.company_name, 
           contact_name = EXCLUDED.contact_name,
           address = EXCLUDED.address,
-          address_full = EXCLUDED.address_full,
           territory = EXCLUDED.territory,
           payment_terms = EXCLUDED.payment_terms,
           contact_method = EXCLUDED.contact_method,
@@ -57,7 +56,6 @@ function createDatabaseOperations(data) {
             data.dbReady.customer.company_name,
             data.dbReady.customer.primary_contact_info || '', // contact_name
             (data.dbReady.customer.address_line_1 || '') + ' ' + (data.dbReady.customer.address_line_2 || ''), // address
-            (data.dbReady.customer.address_line_1 || '') + ' ' + (data.dbReady.customer.address_line_2 || ''), // address_full
             data.dbReady.customer.territory || '',
             data.dbReady.customer.payment_term || '',
             data.dbReady.customer.contact_method,
@@ -351,9 +349,20 @@ try {
             total_amount: documentData.total,
             item_count: documentData.itemCount,
             date: documentData.date,
+            due_date: documentData.dueDate,
             delivery_date: documentData.deliveryDate,
             po_reference: documentData.poReference,
-            source_file: documentData.sourceFile
+            salesperson: documentData.salesPerson,
+            territory: documentData.territory,
+            subtotal: documentData.subtotal,
+            discount: documentData.discount,
+            vat_amount: documentData.vat,
+            payment_term: documentData.paymentTerm,
+            source_file: documentData.sourceFile,
+            processed_date: documentData.processedAt,
+            valid_days: documentData.validDays || 0,
+            address: ((documentData.addressLine1 || '') + ' ' + (documentData.addressLine2 || '')).trim(),
+            contact_person: documentData.contactPerson || ''
         },
         processing: {
             success: true,
@@ -384,7 +393,6 @@ try {
     }];
 }
 
-// ==============================================
 // 📝 การใช้งาน
 // ==============================================
 /*

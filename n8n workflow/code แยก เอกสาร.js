@@ -26,8 +26,8 @@ console.log('XML content length:', xmlContent.length);
 
 // Corrected PK XML Parser Function
 function parseCorrectedPKXML(xmlText) {
-  console.log('=== Parsing XML with Corrected Logic ===');
-  
+  console.log('=== Parsing XML with Final, Unified Logic ===');
+
   const result = {
     documentType: 'unknown',
     documentNumber: '',
@@ -39,7 +39,7 @@ function parseCorrectedPKXML(xmlText) {
     poReference: '',
     salesPerson: '',
     territory: '',
-    paymentTerm: '', // เพิ่มตรงนี้
+    paymentTerm: '',
     items: [],
     subtotal: 0,
     discount: 0,
@@ -48,326 +48,139 @@ function parseCorrectedPKXML(xmlText) {
     itemCount: 0,
     success: false,
     processedAt: new Date().toISOString(),
-    encoding: 'utf-8-xml',
-    parser: 'xml-corrected',
-    contactPerson: '',      // เพิ่ม
-    addressLine1: '',       // เพิ่ม
-    addressLine2: '',       // เพิ่ม
-    validDays: 0,           // เพิ่ม
+    contactPerson: '',
+    addressLine1: '',
+    addressLine2: '',
+    validDays: 0,
   };
 
   try {
-    // แยก XML เป็น rows และ cells
+    // 1. แยก XML เป็น rows และ cells
     const rowRegex = /<Row[^>]*>(.*?)<\/Row>/gs;
     const rows = [];
     let rowMatch;
-    
     while ((rowMatch = rowRegex.exec(xmlText)) !== null) {
       const rowContent = rowMatch[1];
       const rowCells = [];
-
-      // ปรับ regex ให้ดึง ss:Index ด้วย
       const cellRegex = /<Cell([^>]*)><Data ss:Type="([^"]*)"[^>]*>([^<]*)<\/Data><\/Cell>/g;
       let cellMatch;
       let lastIndex = 0;
-
       while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
-        // หา ss:Index
         const cellAttr = cellMatch[1];
         const ssIndexMatch = /ss:Index="(\d+)"/.exec(cellAttr);
         let cellIndex = lastIndex + 1;
         if (ssIndexMatch) {
           cellIndex = parseInt(ssIndexMatch[1], 10);
         }
-        // เติมช่องว่างถ้าข้าม index
         while (rowCells.length < cellIndex - 1) {
           rowCells.push({ type: 'String', value: '' });
         }
-        rowCells.push({
-          type: cellMatch[2],
-          value: cellMatch[3].trim()
-        });
+        rowCells.push({ type: cellMatch[2], value: cellMatch[3].trim() });
         lastIndex = cellIndex;
       }
-
       if (rowCells.length > 0) {
         rows.push(rowCells);
       }
     }
-    
     console.log(`Found ${rows.length} rows with data`);
 
-    // หาข้อมูลพื้นฐาน
+    // 2. Unified Header Parsing Loop
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       const row = rows[rowIndex];
       for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
         const cell = row[cellIndex];
-        // เลขที่เอกสาร
-        if (cell.value.match(/^QT\d+$/)) {
-          result.documentType = 'quotation';
-          result.documentNumber = cell.value;
-          console.log('✅ Found quotation:', result.documentNumber);
-        } else if (cell.value.match(/^SO\d+$/)) {
-          result.documentType = 'sales_order';  
-          result.documentNumber = cell.value;
-          console.log('✅ Found sales order:', result.documentNumber);
-        }
-        // รหัสลูกค้า
-        if (cell.value.match(/^CU\d+$/)) {
-          result.customerCode = cell.value;
-          console.log('✅ Customer code:', result.customerCode);
-        }
-        // วันที่/วันที่ส่งของ
-        if (cell.type === 'DateTime') {
-          let label = '';
-          if (cellIndex > 0) {
-            label = row[cellIndex - 1].value.replace(/\s/g, '');
-          }
-          const dateValue = cell.value.split('T')[0];
+        const cellValue = cell.value;
+        const nextCell = (cellIndex + 1 < row.length) ? row[cellIndex + 1] : null;
 
-          // เช็ค label "ถึงวันที่" หรือ "วันที่ส่งของ"
-          if (
-            (label.includes('ถึงวันที่') || label.includes('วันที่ส่งของ'))
-          ) {
-            if (result.documentType === 'quotation' && !result.dueDate) {
-              result.dueDate = dateValue;
-              console.log('✅ Due date (QT):', result.dueDate);
-            } else if (result.documentType === 'sales_order' && !result.deliveryDate) {
-              result.deliveryDate = dateValue;
-              console.log('✅ Delivery date (SO):', result.deliveryDate);
-            }
-          }
-          // เช็ค label "วันที่" (แต่ต้องไม่ใช่ "ส่งของ" หรือ "ถึงวันที่") → date
-          else if (
-            label.includes('วันที่') &&
-            !label.includes('ส่งของ') &&
-            !label.includes('ถึงวันที่') &&
-            !result.date
-          ) {
-            result.date = dateValue;
-            console.log('✅ Document date (by label):', result.date);
-          }
-          // fallback
-          else if (!result.date) {
-            result.date = dateValue;
-            console.log('✅ Document date (fallback):', result.date);
-          }
-          else if (result.documentType === 'quotation' && !result.dueDate) {
-            result.dueDate = dateValue;
-            console.log('✅ Due date (QT fallback):', result.dueDate);
-          }
-          else if (result.documentType === 'sales_order' && !result.deliveryDate) {
-            result.deliveryDate = dateValue;
-            console.log('✅ Delivery date (SO fallback):', result.deliveryDate);
-          }
-        }
-        
-        // พนักงานขาย
-        if (cell.value.match(/^\d{4,5}-[\u0E00-\u0E7F]+/)) {
-          result.salesPerson = cell.value;
-          console.log('✅ Sales person:', result.salesPerson);
-        }
-        
+        // Document type & number
+        if (cellValue.match(/^QT\d+$/)) { result.documentNumber = cellValue; result.documentType = 'quotation'; }
+        else if (cellValue.match(/^SO\d+$/)) { result.documentNumber = cellValue; result.documentType = 'sales_order'; }
+        // Customer code
+        else if (cellValue.match(/^CU\d+$/)) { result.customerCode = cellValue; }
+        // Sales person
+        else if (cellValue.match(/^\d{4,5}-[\u0E00-\u0E7F]+/)) { result.salesPerson = cellValue; }
         // PO Reference
-        if (cell.value.startsWith('PO.') || cell.value.startsWith('PRPO')) {
-          result.poReference = cell.value;
-          console.log('✅ PO Reference:', result.poReference);
-        }
-        // เงื่อนไขชำระเงิน
-        if (
-          cell.value.includes('เงื่อนไข') ||
-          cell.value.includes('ชำระเงิน')
-        ) {
-          // สมมติว่าข้อมูลอยู่ cell ถัดไป
-          if (cellIndex + 1 < row.length) {
-            result.paymentTerm = row[cellIndex + 1].value;
-            console.log('✅ Payment term:', result.paymentTerm);
-          }
-        }
+        else if (cellValue.startsWith('PO.') || cellValue.startsWith('PRPO')) { result.poReference = cellValue; }
+        // Payment term
+        else if (cellValue.includes('เงื่อนไข') || cellValue.includes('ชำระเงิน')) { if (nextCell) result.paymentTerm = nextCell.value; }
+        // Contact person
+        else if (cellValue.includes('ติดต่อ')) { if (nextCell) result.contactPerson = nextCell.value; }
+        // Valid days
+        else if (cellValue.includes('ยืนราคา')) { if (nextCell) { const match = nextCell.value.match(/\d+/); if (match) result.validDays = parseInt(match[0], 10); }}
 
-        // 1. Contact Person
-        if (cell.value.includes('ติดต่อ')) {
-          if (cellIndex + 1 < row.length) {
-            result.contactPerson = row[cellIndex + 1].value;
-            console.log('✅ Found Contact Person:', result.contactPerson);
-          }
-        }
-
-        // 3. Validity Days
-        if (cell.value.includes('ยืนราคา')) {
-          if (cellIndex + 1 < row.length) {
-            const validDaysText = row[cellIndex + 1].value;
-            const match = validDaysText.match(/\d+/);
-            if (match) {
-              result.validDays = parseInt(match[0], 10);
-              console.log('✅ Found Validity Days:', result.validDays);
-            }
-          }
+        // Date logic
+        if (cell.type === 'DateTime') {
+          const label = (cellIndex > 0) ? row[cellIndex - 1].value.replace(/\s/g, '') : '';
+          const dateValue = cell.value.split('T')[0];
+          if (label.includes('ถึงวันที่')) { result.dueDate = dateValue; }
+          else if (label.includes('วันที่ส่งของ')) { result.deliveryDate = dateValue; }
+          else if (label.includes('วันที่')) { result.date = dateValue; }
         }
       }
     }
 
-    // 2. Address (หลังเจอ customerName แล้ว)
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      const row = rows[rowIndex];
-      let hasCustomerCode = false;
-      for (const cell of row) {
-        if (cell.value === result.customerCode) {
-          hasCustomerCode = true;
-          break;
-        }
+    // 3. Customer name & address (based on customerCode row)
+    let customerCodeRowIndex = rows.findIndex(row => row.some(cell => cell.value === result.customerCode));
+    if (customerCodeRowIndex !== -1) {
+      // Customer name (next row, column 1)
+      if (customerCodeRowIndex + 1 < rows.length && rows[customerCodeRowIndex + 1][1]) {
+        result.customerName = rows[customerCodeRowIndex + 1][1].value;
       }
-      if (hasCustomerCode) {
-        // ...หา customerName เดิม...
-        // หลังเจอ customerName แล้ว:
-        if (result.customerName) {
-          // Address Line 1
-          if (rowIndex + 1 < rows.length && rows[rowIndex + 1].length > 1) {
-            result.addressLine1 = rows[rowIndex + 1][1].value;
-            console.log('✅ Found Address Line 1:', result.addressLine1);
-          }
-          // Address Line 2
-          if (rowIndex + 2 < rows.length && rows[rowIndex + 2].length > 1) {
-            const potentialAddr2 = rows[rowIndex + 2][1].value;
-            if (!potentialAddr2.includes('ติดต่อ')) {
-              result.addressLine2 = potentialAddr2;
-              console.log('✅ Found Address Line 2:', result.addressLine2);
-            }
-          }
-        }
-        break;
+      // Address line 1 (next+1 row, column 1)
+      if (customerCodeRowIndex + 2 < rows.length && rows[customerCodeRowIndex + 2][1]) {
+        result.addressLine1 = rows[customerCodeRowIndex + 2][1].value;
+      }
+      // Address line 2 (next+2 row, column 1)
+      if (customerCodeRowIndex + 3 < rows.length && rows[customerCodeRowIndex + 3][1]) {
+        result.addressLine2 = rows[customerCodeRowIndex + 3][1].value;
       }
     }
 
-    // หาชื่อลูกค้า
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      const row = rows[rowIndex];
-      
-      let hasCustomerCode = false;
-      for (const cell of row) {
-        if (cell.value === result.customerCode) {
-          hasCustomerCode = true;
-          break;
-        }
-      }
-      
-      if (hasCustomerCode) {
-        // หาชื่อลูกค้าในแถวเดียวกัน
-        for (const cell of row) {
-          if (cell.type === 'String' && 
-              cell.value !== result.customerCode &&
-              cell.value.length > 5 &&
-              !cell.value.includes('เลขที่') &&
-              !cell.value.includes('วันที่') &&
-              (cell.value.includes('บริษัท') || 
-               cell.value.includes('บมจ') ||
-               cell.value.includes('จำกัด') ||
-               cell.value.includes('ห้างหุ้นส่วน') ||
-               cell.value.length > 15)) {
-            result.customerName = cell.value;
-            console.log('✅ Customer name (same row):', result.customerName);
-            break;
-          }
-        }
-        
-        // ถ้าไม่เจอ ค้นหาแถวถัดไป
-        if (!result.customerName && rowIndex + 1 < rows.length) {
-          const nextRow = rows[rowIndex + 1];
-          for (const cell of nextRow) {
-            if (cell.type === 'String' && 
-                cell.value.length > 5 &&
-                !cell.value.includes('เลขที่') &&
-                !cell.value.includes('วันที่') &&
-                (cell.value.includes('บริษัท') || 
-                 cell.value.includes('บมจ') ||
-                 cell.value.includes('จำกัด') ||
-                 cell.value.includes('ห้างหุ้นส่วน') ||
-                 cell.value.length > 15)) {
-              result.customerName = cell.value;
-              console.log('✅ Customer name (next row):', result.customerName);
-              break;
-            }
-          }
-        }
-        break;
-      }
-    }
-
-    // วิเคราะห์รายการสินค้า - แก้ไข logic การจับคู่
-    console.log('=== Analyzing Items with Corrected Logic ===');
-
+    // 4. Analyze items and totals (เหมือนเดิม)
     let itemHeaderRow = -1;
     let itemStartRow = -1;
     let itemEndRow = -1;
-    
-    // หา header row ของตารางสินค้า
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       const row = rows[rowIndex];
-      // เพิ่ม log ดู header row
-      console.log(`Row ${rowIndex}:`, row.map(c => c.value));
-      
-      // หาแถว header (มี "รหัสสินค้า", "รายละเอียด", "จำนวน", "ราคา")
-      let hasProductCode = false;
-      let hasDescription = false;
-      let hasQuantity = false;
-      let hasPrice = false;
-      
+      let hasProductCode = false, hasDescription = false, hasQuantity = false, hasPrice = false;
       for (const cell of row) {
         if (cell.value.includes('รหัสสินค้า') || cell.value.includes('รหัส')) hasProductCode = true;
         if (cell.value.includes('รายละเอียด') || cell.value.includes('สินค้า')) hasDescription = true;
         if (cell.value.includes('จำนวน')) hasQuantity = true;
         if (cell.value.includes('ราคา')) hasPrice = true;
       }
-      
       if (hasProductCode && hasDescription && hasQuantity && hasPrice) {
         itemHeaderRow = rowIndex;
         itemStartRow = rowIndex + 1;
-        console.log('✅ Found item header at row:', itemHeaderRow);
-        console.log('Header structure:', row.map(c => c.value));
         break;
       }
     }
-    
-    // หาจุดสิ้นสุดของตารางสินค้า
     if (itemStartRow >= 0) {
       for (let rowIndex = itemStartRow; rowIndex < rows.length; rowIndex++) {
         const row = rows[rowIndex];
-        
-        // หาแถวที่มี "รวม" หรือ "รวมเป็นเงิน"
         for (const cell of row) {
-          if (cell.value.includes('รวมเป็นเงิน') || 
-              cell.value.includes('รวมทั้งหมด') ||
-              (cell.value.includes('รวม') && !cell.value.includes('รวมทั้งสิ้น'))) {
+          if (cell.value.includes('รวมเป็นเงิน') || cell.value.includes('รวมทั้งหมด') ||
+            (cell.value.includes('รวม') && !cell.value.includes('รวมทั้งสิ้น'))) {
             itemEndRow = rowIndex;
-            console.log('✅ Found item end at row:', itemEndRow);
             break;
           }
         }
         if (itemEndRow >= 0) break;
       }
     }
-
-    // แยกรายการสินค้า - แก้ไข logic การจับคู่ข้อมูล
     if (itemStartRow >= 0 && itemEndRow >= 0) {
-      console.log(`Extracting items from row ${itemStartRow} to ${itemEndRow - 1}`);
-      
-      let minColumns = rows[itemHeaderRow]?.length || 7; // ใช้จำนวน column ของ header จริง
-
+      let minColumns = rows[itemHeaderRow]?.length || 7;
       for (let rowIndex = itemStartRow; rowIndex < itemEndRow; rowIndex++) {
         const row = rows[rowIndex];
-        // ข้าม row ที่ cell ไม่ครบตาม header
         if (row.length < minColumns) continue;
-
-        // ใช้ตำแหน่ง index ตาม header จริง
         const productCode = row[1]?.value || '';
         const description = row[2]?.value || '';
         const quantity = parseFloat((row[3]?.value || '0').replace(/,/g, ''));
         const unit = row[4]?.value || '';
         const unitPrice = parseFloat((row[5]?.value || '0').replace(/,/g, ''));
-        const amount = parseFloat((row[minColumns - 1]?.value || '0').replace(/,/g, '')); // ใช้ column สุดท้ายเป็น amount
-
+        const amount = parseFloat((row[minColumns - 1]?.value || '0').replace(/,/g, ''));
         if (productCode && description && quantity > 0 && amount > 0) {
-          const item = {
+          result.items.push({
             lineNumber: (result.items.length + 1).toString(),
             productCode,
             description,
@@ -376,23 +189,17 @@ function parseCorrectedPKXML(xmlText) {
             unitPrice,
             amount,
             discount: 0
-          };
-          result.items.push(item);
+          });
         }
       }
     }
 
-    // หายอดเงิน - แก้ไข logic การจับคู่
-    console.log('=== Analyzing Totals with Corrected Logic ===');
-    
+    // 5. Analyze totals
     for (let rowIndex = itemEndRow || 0; rowIndex < rows.length; rowIndex++) {
       const row = rows[rowIndex];
-      
       for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
         const cell = row[cellIndex];
-        
         if (cell.type === 'String') {
-          // หาตัวเลขในแถวเดียวกัน
           let totalValue = 0;
           for (let i = cellIndex + 1; i < row.length; i++) {
             if (row[i].type === 'Number' || !isNaN(row[i].value.replace(/,/g, ''))) {
@@ -400,76 +207,37 @@ function parseCorrectedPKXML(xmlText) {
               break;
             }
           }
-          
           if (totalValue > 0) {
-            console.log(`  Checking: "${cell.value}" = ${totalValue}`);
-            
-            // จับคู่ให้ถูกต้อง
             if (cell.value.includes('รวมเป็นเงิน') && !cell.value.includes('ทั้งสิ้น')) {
               result.subtotal = totalValue;
-              console.log('✅ Subtotal:', result.subtotal, 'from:', cell.value);
-            } 
+            }
             else if (cell.value.includes('หัก') && cell.value.includes('ส่วนลด')) {
               result.discount = totalValue;
-              console.log('✅ Discount:', result.discount, 'from:', cell.value);
             }
             else if (cell.value.includes('ภาษี') && !cell.value.includes('%')) {
               result.vat = totalValue;
-              console.log('✅ VAT:', result.vat, 'from:', cell.value);
-            } 
+            }
             else if (cell.value.includes('รวมทั้งสิ้น')) {
               result.total = totalValue;
-              console.log('✅ Total:', result.total, 'from:', cell.value);
             }
           }
         }
       }
     }
 
-    // คำนวณ subtotal จากรายการสินค้าถ้าไม่มี
     if (result.subtotal === 0 && result.items.length > 0) {
       result.subtotal = result.items.reduce((sum, item) => sum + item.amount, 0);
-      console.log('✅ Calculated subtotal from items:', result.subtotal);
     }
-
-    // ตรวจสอบความถูกต้องของยอดเงิน
-    if (result.subtotal > 0 && result.vat > 0 && result.total > 0) {
-      const expectedTotal = result.subtotal - result.discount + result.vat;
-      if (Math.abs(expectedTotal - result.total) > 1) {
-        console.log('⚠️  Total calculation mismatch. Expected:', expectedTotal, 'Got:', result.total);
-        // แก้ไข discount ถ้าคำนวณไม่ตรง
-        if (result.discount === result.subtotal) {
-          result.discount = 0;
-          console.log('✅ Corrected discount to:', result.discount);
-        }
-      }
-    }
-
-    // Fallback total calculation
     if (result.total === 0 && result.subtotal > 0) {
       result.total = result.subtotal - result.discount + result.vat;
-      console.log('✅ Fallback total:', result.total);
     }
-
     result.itemCount = result.items.length;
     result.success = !!(result.documentNumber && result.customerCode && (result.total > 0 || result.items.length > 0));
-
-    console.log('=== Corrected Parse Summary ===');
-    console.log(`Success: ${result.success}`);
-    console.log(`Type: ${result.documentType}`);
-    console.log(`Number: ${result.documentNumber}`);
-    console.log(`Customer: ${result.customerCode} - ${result.customerName}`);
-    console.log(`Sales Person: ${result.salesPerson}`);
-    console.log(`Date: ${result.date} → ${result.dueDate}`);
-    console.log(`Items: ${result.itemCount}`);
-    console.log(`Financial - Subtotal: ${result.subtotal}, Discount: ${result.discount}, VAT: ${result.vat}, Total: ${result.total}`);
-
   } catch (error) {
     console.error('XML parsing error:', error.message);
     result.success = false;
     result.error = error.message;
   }
-
   return result;
 }
 
