@@ -34,7 +34,7 @@ module.exports = {
     {
       name: 'liff-app',
       script: 'liff-server.js',
-      cwd: '/home/pakeen/pk-crm',
+      cwd: '/home/pakeen/liff-delivery',
       instances: 1,
       exec_mode: 'fork',
       env: {
